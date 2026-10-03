@@ -6,10 +6,8 @@
 ## 1. Purpose
 
 sinfony generates music from mathematics: functions, noise, and established
-math–music relations, composed in layers. It is inspired by
-[{Shan, Shui}*](https://github.com/LingDong-/shan-shui-inf), which builds
-infinite landscapes from seeded noise, parametric shapes, and rule-based
-placement.
+math–music relations, composed in layers: seeded noise, parametric shapes,
+and rule-based choices.
 
 Goals, in priority order:
 
@@ -37,7 +35,7 @@ signals). v1 builds only the music renderer, but keeps the core medium-agnostic.
 - Edit → hear → see loop in a notebook takes seconds.
 - Same seed → identical piece.
 
-## 2. Principles (carried over from shan-shui)
+## 2. Principles
 
 1. **Seeded determinism.** A piece is a function of the seed and code, not stored data.
 2. **Structure × noise.** Clean math shapes give structure. Coherent noise (1/f)
@@ -46,7 +44,7 @@ signals). v1 builds only the music renderer, but keeps the core medium-agnostic.
    Mid-frequency curves shape phrases. High-frequency noise shapes individual
    notes and their performance.
 4. **Rules, not placement.** Local rule functions (penalties/predicates) shape
-   choices, like shan-shui's `vegetate`.
+   choices instead of hard-coded placement.
 5. **Parametric everything.** Every component exposes its parameters, with
    seeded defaults.
 6. **Use established theory.** Prefer known math–music relations over
@@ -91,14 +89,14 @@ layers above it.
 Plan → Harmony → Voices (+ Motifs) → Perform → Render
 ```
 
-| Shan-shui | sinfony |
-|---|---|
-| seed / PRNG | `Rng` with per-layer child streams |
-| `mountplanner` (low-frequency noise) | `Plan`: form, key, tension curve |
-| mountain = cos × noise | phrase contour = arch × pink noise, quantized to scale/chord |
-| `vegetate` predicates | melody rules as penalty functions |
-| brush-stroke noise | performance: velocity, micro-timing, phrase arcs |
-| chunked rendering | (deferred) bar-by-bar streaming |
+| Layer | Scale | Role |
+|---|---|---|
+| `Rng` | — | seeded randomness, per-layer child streams |
+| `Plan` | low frequency | form, key, tension curve |
+| Harmony | low–mid | chord track driven by tension |
+| Voices + Motifs | mid | phrase contour = arch × pink noise, quantized to scale/chord; rules as penalty functions |
+| Perform | high frequency | velocity, micro-timing, phrase arcs |
+| (deferred) | — | bar-by-bar streaming |
 
 ### Layout
 
@@ -139,7 +137,7 @@ written in-house so students can read it.
 - Arithmetic: `+ - * / **` and unary `-` with curves and scalars produce
   new curves. `abs(c)` works.
 - Transforms: `shift(dt)`, `stretch(k)`, `clip(lo, hi)`,
-  `remap(a, b, c, d)` (linear map like shan-shui's `mapval`),
+  `remap(a, b, c, d)` (linear map from `[a, b]` to `[c, d]`),
   `over(t0, t1)` (bind a normalized `[0, 1]` shape to the beat range
   `[t0, t1]`; constant outside unless stated).
 - Evaluation: `c(t)` accepts a scalar or an ndarray. `c.sample(t0, t1, n)` is
@@ -429,5 +427,4 @@ pytest, with one test module per source module.
 3. `notebooks/01_tour.ipynb`: curves, then a scale from fifths, then chords,
    then a melody from contour plus rules, then a full `tonal` piece and an
    `ambient` piece, each with `.play()` and `.show()`.
-4. A README covering what sinfony is, a quickstart, and the shan-shui
-   inspiration.
+4. A README covering what sinfony is and a quickstart.
