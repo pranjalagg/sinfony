@@ -10,7 +10,7 @@ import numpy as np
 from .curve import Curve
 from .plan import Plan, Section
 from .rng import Rng
-from .theory import Chord, Scale, numeral_function, parse_roman
+from .theory import Chord, L, P, R, Scale, numeral_function, parse_roman
 
 
 @dataclass(frozen=True)
@@ -221,3 +221,62 @@ class Functional:
                 if abs(s.end - sec.end) < 1e-9:
                     spans[i] = ChordSpan(s.onset, s.dur, parse_roman(deceptive, key), "T")
         return ChordTrack(spans)
+
+
+# --- Tonnetz walk -------------------------------------------------------------
+def home_chord(key: Scale) -> Chord:
+    """Tonic triad: major if the key has a major third above the tonic, else minor."""
+    quality = "maj" if key.contains(key.root + 4) else "min"
+    return Chord.build(key.root, quality)
+
+
+class TonnetzWalk:
+    """A random walk on the Tonnetz: each move is P, L, or R.
+
+    These moves keep two common tones and shift one note by a step, so the
+    harmony drifts smoothly. Moves that stay inside the key are preferred.
+    """
+
+    def __init__(self, rate: Curve | None = None, bars_per_chord: tuple[int, int] = (2, 4)):
+        lo, hi = bars_per_chord
+        if lo < 1 or hi < lo:
+            raise ValueError("bars_per_chord needs 1 <= lo <= hi")
+        self.rate = rate
+        self.bars_per_chord = (lo, hi)
+
+    def generate(self, plan: Plan, rng: Rng) -> ChordTrack:
+        bpb = plan.form.beats_per_bar
+        lo, hi = self.bars_per_chord
+
+        def make(sec: Section, srng: Rng) -> list[ChordSpan]:
+            key = plan.section_key(sec)
+            chord = home_chord(key)
+            t, out = 0.0, []
+            while t < sec.length - 1e-9:
+                bars = int(srng.integers(lo, hi + 1))
+                dur = min(bars * bpb, sec.length - t)
+                if out:
+                    at = sec.start + t
+                    p = (
+                        float(self.rate(at))
+                        if self.rate is not None
+                        else 0.3 + 0.6 * float(plan.tension(at))
+                    )
+                    if srng.random() < p:
+                        chord = self._move(chord, key, srng)
+                out.append(ChordSpan(t, dur, chord, "other"))
+                t += dur
+            return out
+
+        spans = list(by_section(plan, rng, make))
+        last = spans[-1]
+        home = home_chord(plan.section_key(plan.form.sections[-1]))
+        spans[-1] = ChordSpan(last.onset, last.dur, home, last.function)
+        return ChordTrack(spans)
+
+    @staticmethod
+    def _move(chord: Chord, key: Scale, rng: Rng) -> Chord:
+        moves = [P(chord), L(chord), R(chord)]
+        fits = [len(c.pcs & key.pcs) for c in moves]
+        best = max(fits)
+        return rng.choice([c for c, f in zip(moves, fits, strict=True) if f == best])
