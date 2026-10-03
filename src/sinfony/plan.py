@@ -55,6 +55,17 @@ class Form:
         self.sections = tuple(sections)
         self.total_beats = t
 
+    def material_key(self, section: Section) -> str:
+        """Sections share material when their base label and length match.
+
+        A repeat with a different bar count gets its own material, keyed
+        ``"A@3"``; the usual case keeps the plain base label.
+        """
+        first = next(s for s in self.sections if s.base_label == section.base_label)
+        if first.bars == section.bars:
+            return section.base_label
+        return f"{section.base_label}@{section.bars}"
+
     def section_at(self, t: float) -> Section:
         for s in self.sections:
             if t < s.end - EPS:
@@ -103,6 +114,9 @@ class Plan:
         self.key = key or Scale.major(60)
         self.form = form or Form("A A' B A")
         self.tempo = tempo if isinstance(tempo, Curve) else const(tempo)
+        _, bpm = self.tempo.sample(0.0, self.form.total_beats, 512)
+        if np.any(bpm <= 0):
+            raise ValueError("tempo must stay positive over the whole piece")
         self.tension = (
             tension
             if tension is not None

@@ -118,10 +118,11 @@ def realize_motif_melody(
     cache: dict[str, Events] = {}
     notes: list[Note] = []
     for sec in plan.form.sections:
-        if sec.base_label not in cache:
-            period = develop_period(voice, plan, chords, grid, rng.child(f"motif:{sec.base_label}"), sec)
-            cache[sec.base_label] = period.shift(-sec.start)
-        material = cache[sec.base_label].shift(sec.start)
+        key = plan.form.material_key(sec)
+        if key not in cache:
+            period = develop_period(voice, plan, chords, grid, rng.child(f"motif:{key}"), sec)
+            cache[key] = period.shift(-sec.start)
+        material = cache[key].shift(sec.start)
         if sec.label != sec.base_label:
             material = vary(material, sec, plan)
         notes.extend(material)

@@ -23,7 +23,7 @@ def test_walk_moves_by_plr_within_sections(seed):
     for sec in plan.form.sections:
         spans = [s for s in track if sec.start <= s.onset < sec.end]
         assert spans[0].chord == home_chord(plan.section_key(sec))
-        resolves = sec.base_label == plan.form.sections[-1].base_label
+        resolves = plan.form.material_key(sec) == plan.form.material_key(plan.form.sections[-1])
         for a, b in zip(spans, spans[1:]):
             if resolves and b is spans[-1]:
                 continue  # sections like the ending are forced home, not walked to

@@ -58,3 +58,12 @@ def test_play_falls_back_to_wav(tmp_path, monkeypatch, capsys):
     play_mod.play(np.zeros(100, dtype=np.float32))
     assert "wrote" in capsys.readouterr().out
     assert (tmp_path / "sinfony-play.wav").exists()
+
+
+def test_midi_rejects_unrepresentable_tempo():
+    import pytest
+
+    with pytest.raises(ValueError, match="tempo"):
+        to_midi(ev(), const(0))
+    with pytest.raises(ValueError, match="tempo"):
+        to_midi(ev(), const(2))

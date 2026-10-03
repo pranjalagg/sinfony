@@ -81,3 +81,12 @@ def test_related_keys():
     assert dominant_key(Scale.major(60)) == Scale.major(55)
     assert relative_key(Scale.major(60)) == Scale.minor(57)
     assert relative_key(Scale.minor(57)) == Scale.major(60)
+
+
+def test_tempo_curve_must_stay_positive():
+    from sinfony.curve import piecewise
+
+    with pytest.raises(ValueError, match="tempo"):
+        Plan(tempo=const(0))
+    with pytest.raises(ValueError, match="tempo"):
+        Plan(form=Form("A", bars=2), tempo=piecewise([(0, 90), (8, 0)]))

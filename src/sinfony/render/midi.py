@@ -11,6 +11,7 @@ from ..curve import Curve
 from ..events import Events
 
 _CHANNELS = [c for c in range(16) if c != 9]  # channel 9 is drums in General MIDI
+_MIN_BPM = 60e6 / 0xFFFFFF  # slowest tempo a MIDI set_tempo event can hold (~3.6)
 
 
 def to_midi(events: Events, tempo: Curve, ppq: int = 480) -> mido.MidiFile:
@@ -18,9 +19,12 @@ def to_midi(events: Events, tempo: Curve, ppq: int = 480) -> mido.MidiFile:
     conductor = mido.MidiTrack()
     mf.tracks.append(conductor)
     for b in range(int(math.ceil(events.span[1])) + 1):
+        bpm = float(tempo(b))
+        if bpm < _MIN_BPM:
+            raise ValueError(f"tempo {bpm:g} BPM at beat {b} is below MIDI's minimum ({_MIN_BPM:.2f})")
         conductor.append(
             mido.MetaMessage(
-                "set_tempo", tempo=mido.bpm2tempo(float(tempo(b))), time=0 if b == 0 else ppq
+                "set_tempo", tempo=mido.bpm2tempo(bpm), time=0 if b == 0 else ppq
             )
         )
     for i, (voice, ev) in enumerate(sorted(events.by_voice().items())):

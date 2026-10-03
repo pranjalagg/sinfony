@@ -88,3 +88,18 @@ def test_ambient_loops_phase():
     n2 = sum(1 for n in p.score if n.voice == "loop2")
     assert abs(n1 - steps * 3 / 8) <= 3
     assert abs(n2 - steps * 5 / 13) <= 3
+
+
+@pytest.mark.parametrize("bars", [[1, 3], [3, 1], [8, 4], [4, 8]])
+def test_repeated_label_with_different_length(bars):
+    from sinfony.plan import Form
+
+    p = tonal(0, form=Form("A A'", bars=bars))
+    T = p.plan.total_beats
+    assert p.chords[-1].end == pytest.approx(T)
+    for a, b in zip(p.chords, list(p.chords)[1:]):
+        assert b.onset == pytest.approx(a.end)
+    assert all(n.onset < T for n in p.score)
+    bpb = p.plan.form.beats_per_bar
+    bars_with_melody = {int(n.onset // bpb) for n in p.voice("melody")}
+    assert bars_with_melody == set(range(int(T // bpb)))

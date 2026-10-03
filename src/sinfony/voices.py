@@ -193,10 +193,11 @@ def per_section(
     cache: dict[str, Events] = {}
     notes: list[Note] = []
     for sec in plan.form.sections:
-        if sec.base_label not in cache:
-            fresh = make(voice, plan, chords, grid, rng.child(f"section:{sec.base_label}"), sec)
-            cache[sec.base_label] = fresh.shift(-sec.start)
-        notes.extend(cache[sec.base_label].shift(sec.start))
+        key = plan.form.material_key(sec)
+        if key not in cache:
+            fresh = make(voice, plan, chords, grid, rng.child(f"section:{key}"), sec)
+            cache[key] = fresh.shift(-sec.start)
+        notes.extend(cache[key].shift(sec.start))
     ev = Events(notes, (0.0, plan.total_beats))
     return requantize(ev, plan, chords, grid, voice.register, voice.subset, voice.name)
 

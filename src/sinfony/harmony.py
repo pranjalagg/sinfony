@@ -69,9 +69,10 @@ def by_section(plan: Plan, rng: Rng, make: MakeSection) -> ChordTrack:
     cache: dict[str, list[ChordSpan]] = {}
     spans = []
     for sec in plan.form.sections:
-        if sec.base_label not in cache:
-            cache[sec.base_label] = make(sec, rng.child(f"section:{sec.base_label}"))
-        for s in cache[sec.base_label]:
+        key = plan.form.material_key(sec)
+        if key not in cache:
+            cache[key] = make(sec, rng.child(f"section:{key}"))
+        for s in cache[key]:
             spans.append(ChordSpan(s.onset + sec.start, s.dur, s.chord, s.function))
     return ChordTrack(spans)
 
@@ -266,12 +267,12 @@ class TonnetzWalk:
                         chord = self._move(chord, key, srng)
                 out.append(ChordSpan(t, dur, chord, "other"))
                 t += dur
-            if sec.base_label == final_label:  # the piece ends at home
+            if plan.form.material_key(sec) == final_key:  # the piece ends at home
                 end = out[-1]
                 out[-1] = ChordSpan(end.onset, end.dur, home_chord(key), end.function)
             return out
 
-        final_label = plan.form.sections[-1].base_label
+        final_key = plan.form.material_key(plan.form.sections[-1])
         return by_section(plan, rng, make)
 
     @staticmethod
