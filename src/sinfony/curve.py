@@ -3,8 +3,12 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable
+from typing import TYPE_CHECKING
 
 import numpy as np
+
+if TYPE_CHECKING:
+    from .rng import Rng
 
 ArrayFn = Callable[[np.ndarray], np.ndarray]
 
@@ -173,3 +177,80 @@ def piecewise(points: Iterable[tuple[float, float]]) -> Curve:
     if np.any(np.diff(xs) <= 0):
         raise ValueError("piecewise x values must be distinct")
     return Curve(lambda t: np.interp(t, xs, ys), "piecewise")
+
+
+# --- noise --------------------------------------------------------------
+_U64 = np.uint64
+
+
+def _hash01(i, salt: int) -> np.ndarray:
+    """Deterministic pseudo-random value in [0, 1) per integer lattice point."""
+    shape = np.shape(i)
+    x = np.atleast_1d(np.asarray(i, dtype=np.int64)).view(np.uint64)
+    with np.errstate(over="ignore"):
+        x = x * _U64(0x9E3779B97F4A7C15)
+        x ^= _U64(salt)
+        x ^= x >> _U64(30)
+        x *= _U64(0xBF58476D1CE4E5B9)
+        x ^= x >> _U64(27)
+        x *= _U64(0x94D049BB133111EB)
+        x ^= x >> _U64(31)
+    return ((x >> _U64(11)).astype(np.float64) / float(1 << 53)).reshape(shape)
+
+
+def _value_noise(t, freq: float, salt: int) -> np.ndarray:
+    """Random values on an integer lattice, smoothly (cosine) interpolated."""
+    x = np.asarray(t, dtype=float) * freq
+    i0 = np.floor(x)
+    u = x - i0
+    a = _hash01(i0, salt)
+    b = _hash01(i0 + 1, salt)
+    s = 0.5 - 0.5 * np.cos(np.pi * u)
+    return (a + (b - a) * s) * 2.0 - 1.0
+
+
+def _fractal(rng: Rng, octaves: int, base: float, gain: float, name: str) -> Curve:
+    if octaves < 1:
+        raise ValueError("octaves must be >= 1")
+    if base <= 0:
+        raise ValueError("base frequency must be positive")
+    salts = [int(s) for s in rng.integers(0, 2**62, size=octaves)]
+    amps = [gain**o for o in range(octaves)]
+    # Each interpolated octave has std ~0.5; dividing by the root-sum-square of
+    # the amplitudes keeps the total std ~0.5 as well.
+    norm = float(np.sqrt(sum(a * a for a in amps)))
+
+    def f(t):
+        acc = 0.0
+        for o, (salt, amp) in enumerate(zip(salts, amps, strict=True)):
+            acc = acc + amp * _value_noise(t, base * 2.0**o, salt)
+        return np.clip(acc / norm, -1.0, 1.0)
+
+    return Curve(f, name)
+
+
+def pink(rng: Rng, octaves: int = 8, base: float = 1 / 16) -> Curve:
+    """1/f noise: equal amplitude in every octave (Voss's construction).
+
+    Real melodies and loudness fluctuate with roughly this spectrum
+    (Voss & Clarke, 1975): more structured than white noise, less
+    sluggish than brown noise.
+    """
+    return _fractal(rng, octaves, base, 1.0, "pink")
+
+
+def brown(rng: Rng, octaves: int = 8, base: float = 1 / 16) -> Curve:
+    """1/f^2 noise: amplitude falls by 1/sqrt(2) per octave."""
+    return _fractal(rng, octaves, base, 2**-0.5, "brown")
+
+
+def white(rng: Rng, rate: float = 4.0) -> Curve:
+    """A fresh independent value every 1/rate beats (sample-and-hold)."""
+    if rate <= 0:
+        raise ValueError("rate must be positive")
+    salt = int(rng.integers(0, 2**62))
+    return Curve(
+        lambda t: _hash01(np.floor(np.asarray(t, dtype=float) * rate), salt) * 2.0
+        - 1.0,
+        "white",
+    )
