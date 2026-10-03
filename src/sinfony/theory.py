@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 NOTE_NAMES = ("C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B")
 
@@ -154,3 +155,167 @@ class Scale:
 
     def subset(self, degrees: Iterable[int]) -> Scale:
         return Scale(self.root, tuple(self.steps[d % len(self.steps)] for d in degrees))
+
+
+# --- chords -------------------------------------------------------------
+QUALITIES: dict[str, tuple[int, ...]] = {
+    "maj": (0, 4, 7),
+    "min": (0, 3, 7),
+    "dim": (0, 3, 6),
+    "aug": (0, 4, 8),
+    "dom7": (0, 4, 7, 10),
+    "min7": (0, 3, 7, 10),
+    "hdim7": (0, 3, 6, 10),
+    "maj7": (0, 4, 7, 11),
+}
+_SYMBOL = {
+    "maj": "",
+    "min": "m",
+    "dim": "dim",
+    "aug": "+",
+    "dom7": "7",
+    "min7": "m7",
+    "hdim7": "m7b5",
+    "maj7": "maj7",
+}
+ROMAN = ("I", "II", "III", "IV", "V", "VI", "VII")
+
+
+@dataclass(frozen=True)
+class Chord:
+    """A set of pitch classes in Z12 with a root. C major = {0, 4, 7}."""
+
+    root: int
+    pcs: frozenset[int]
+    label: str = field(default="", compare=False)
+
+    def __post_init__(self):
+        object.__setattr__(self, "root", pc(self.root))
+        object.__setattr__(self, "pcs", frozenset(pc(p) for p in self.pcs))
+        if self.root not in self.pcs:
+            raise ValueError("Chord root must be one of its pitch classes")
+
+    @classmethod
+    def build(cls, root: int, quality: str, label: str = "") -> Chord:
+        if quality not in QUALITIES:
+            raise ValueError(f"Unknown chord quality {quality!r}")
+        r = pc(root)
+        pcs = frozenset((r + i) % 12 for i in QUALITIES[quality])
+        return cls(r, pcs, label or f"{NOTE_NAMES[r]}{_SYMBOL[quality]}")
+
+    @property
+    def intervals(self) -> tuple[int, ...]:
+        return tuple(sorted((p - self.root) % 12 for p in self.pcs))
+
+    @property
+    def quality(self) -> str | None:
+        for name, iv in QUALITIES.items():
+            if iv == self.intervals:
+                return name
+        return None
+
+    def contains(self, pitch: int) -> bool:
+        return pc(pitch) in self.pcs
+
+    def pitches(self, lo: int, hi: int) -> list[int]:
+        return [p for p in range(lo, hi + 1) if pc(p) in self.pcs]
+
+    def __str__(self) -> str:
+        return self.label or f"{NOTE_NAMES[self.root]}{sorted(self.pcs)}"
+
+
+def _roman_label(degree: int, quality: str | None, size: int) -> str:
+    base = ROMAN[degree % 7] if size == 7 else str(degree % size + 1)
+    if quality in ("min", "dim", "min7", "hdim7"):
+        base = base.lower()
+    suffix = {"dim": "°", "aug": "+", "hdim7": "ø7", "dom7": "7", "min7": "7", "maj7": "maj7"}
+    return base + suffix.get(quality or "", "")
+
+
+def _stacked(scale: Scale, degree: int, count: int) -> Chord:
+    ps = [scale.degree(degree + 2 * k) for k in range(count)]
+    chord = Chord(pc(ps[0]), frozenset(pc(p) for p in ps))
+    return Chord(chord.root, chord.pcs, _roman_label(degree, chord.quality, len(scale)))
+
+
+def triad(scale: Scale, degree: int) -> Chord:
+    """Stack two thirds on a scale degree (0-based: 0 is I)."""
+    return _stacked(scale, degree, 3)
+
+
+def seventh(scale: Scale, degree: int) -> Chord:
+    """Stack three thirds on a scale degree (0-based: 4 is V7)."""
+    return _stacked(scale, degree, 4)
+
+
+_ROMAN_RE = re.compile(
+    r"^(?P<acc>[b#]?)"
+    r"(?P<num>VII|VI|IV|V|III|II|I|vii|vi|iv|v|iii|ii|i)"
+    r"(?P<qual>°|o|\+)?(?P<sev>7)?$"
+)
+
+
+def parse_roman(numeral: str, scale: Scale) -> Chord:
+    """Chord for a Roman numeral in ``scale``. Case sets quality: V major, v minor."""
+    text = numeral.strip()
+    if "/" in text:
+        head, _, tail = text.partition("/")
+        target = parse_roman(tail, scale)
+        chord = parse_roman(head, Scale.major(60 + target.root))
+        return Chord(chord.root, chord.pcs, text)
+    m = _ROMAN_RE.match(text)
+    if not m:
+        raise ValueError(f"Unknown Roman numeral: {numeral!r}")
+    if len(scale) != 7:
+        raise ValueError("Roman numerals need a 7-note scale")
+    num = m["num"]
+    root = pc(scale.degree(ROMAN.index(num.upper()))) + {"b": -1, "#": 1, "": 0}[
+        m["acc"]
+    ]
+    seventh_ = m["sev"] is not None
+    if m["qual"] in ("°", "o"):
+        quality = "hdim7" if seventh_ else "dim"
+    elif m["qual"] == "+":
+        quality = "aug"
+    elif num.isupper():
+        quality = "dom7" if seventh_ else "maj"
+    else:
+        quality = "min7" if seventh_ else "min"
+    return Chord.build(root, quality, text)
+
+
+def numeral_function(numeral: str) -> str:
+    """Harmonic function: T (tonic), S (pre-dominant), D (dominant), or other."""
+    if "/" in numeral:
+        return "S"  # secondary dominants prepare the dominant
+    if numeral[:1] in ("b", "#"):
+        return "other"
+    head = numeral.rstrip("7°o+").upper()
+    return {"I": "T", "VI": "T", "III": "T", "IV": "S", "II": "S", "V": "D", "VII": "D"}.get(
+        head, "other"
+    )
+
+
+# --- neo-Riemannian transformations ---------------------------------------
+def _major_or_minor(chord: Chord) -> tuple[int, str]:
+    if chord.quality not in ("maj", "min"):
+        raise ValueError(f"P/L/R need a major or minor triad, got {chord}")
+    return chord.root, chord.quality
+
+
+def P(chord: Chord) -> Chord:
+    """Parallel: C major <-> C minor (move the third by a semitone)."""
+    r, q = _major_or_minor(chord)
+    return Chord.build(r, "min" if q == "maj" else "maj")
+
+
+def R(chord: Chord) -> Chord:
+    """Relative: C major <-> A minor (move the fifth up a tone)."""
+    r, q = _major_or_minor(chord)
+    return Chord.build(r + 9, "min") if q == "maj" else Chord.build(r + 3, "maj")
+
+
+def L(chord: Chord) -> Chord:
+    """Leading-tone exchange: C major <-> E minor (move the root down a semitone)."""
+    r, q = _major_or_minor(chord)
+    return Chord.build(r + 4, "min") if q == "maj" else Chord.build(r + 8, "maj")
