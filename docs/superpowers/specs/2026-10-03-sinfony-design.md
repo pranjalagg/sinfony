@@ -107,7 +107,7 @@ sinfony/
   src/sinfony/
     __init__.py             public API + presets
     rng.py curve.py events.py theory.py
-    plan.py harmony.py voices.py rules.py motif.py perform.py
+    plan.py harmony.py rhythm.py voices.py rules.py motif.py perform.py
     piece.py presets.py
     render/ synth.py midi.py viz.py play.py
   tests/                    test_<module>.py per module
@@ -144,9 +144,11 @@ written in-house so students can read it.
   also available.
 - Shapes (normalized on `[0, 1]`): `const(v)`, `sine(freq, phase)`, `arch()`
   (`sin(πu)`), `ramp()`, `step(edges, values)`, `piecewise(points)`.
-- Noise (seeded via `Rng`): `pink(rng, octaves=…)`, which is fractal value/Perlin
-  noise with amplitude falloff 0.5 per octave and approximately 1/f
-  spectrum; `white(rng)`; `brown(rng)`. Noise output is in roughly `[-1, 1]`
+- Noise (seeded via `Rng`): `pink(rng, octaves=…)`, which is fractal value
+  noise with equal amplitude in every octave (Voss's construction) and an
+  approximately 1/f spectrum. (A falloff of g per octave gives 1/f^β with
+  β = 1 − 2·log₂g, so a falloff of 0.5 would give 1/f³.)
+  Also `white(rng)` and `brown(rng)` (1/f²). Noise output is in roughly `[-1, 1]`
   and is deterministic for a given `Rng`.
 - `c.show()` plots the curve.
 
@@ -173,7 +175,8 @@ written in-house so students can read it.
 ### 5.4 `theory` (`theory.py`)
 
 - `freq(n)`, `pc(n) = n mod 12`.
-- `Scale(root: int, pcs: frozenset[int])`:
+- `Scale(root: int, steps: tuple[int, ...])`: semitone steps above the tonic.
+  `.pcs` gives the absolute pitch classes as a frozenset.
   - `Scale.generated(gen=7, n=7, root)`: stack `n` steps of the generator,
     starting from the step that yields the standard mode (`generated(7,7)` is
     major, `generated(7,5)` is major pentatonic).
@@ -182,7 +185,8 @@ written in-house so students can read it.
   - Methods: `degree(i) -> MIDI` (handles octaves and negative degrees),
     `degree_of(pitch)`, `nearest(pitch)`, `contains(pitch)`.
 - `Chord(root: int, pcs: frozenset[int], label: str)`:
-  - `triad(scale, degree)` and `seventh(scale, degree)`.
+  - `triad(scale, degree)` and `seventh(scale, degree)`. Degrees are 0-based:
+    `triad(scale, 0)` is I.
   - Roman-numeral parsing for `Fixed` progressions (`"I"`, `"vi"`, `"V7"`,
     `"V/V"`).
   - `pitches(lo, hi)`.
@@ -232,13 +236,14 @@ written in-house so students can read it.
 - **Repetition:** sections with the same base label reuse the same chord
   track. A primed section (`A'`) may alter its final cadence.
 
-### 6.3 Voices (`voices.py`, `rules.py`)
+### 6.3 Voices (`rhythm.py`, `voices.py`, `rules.py`)
 
 - `Voice(name, role, register: (lo, hi), rhythm, pitch, rules)`.
 - Rhythm generators produce onsets and durations from `MeterGrid`.
   - `MeterGrid(meter)`: beat strength comes from the metric hierarchy (downbeat >
     mid-bar > beats > subdivisions).
-  - `euclid(k, n, rotate=0)`: Bjorklund's algorithm.
+  - `euclid(k, n, rotate=0)`: Euclidean rhythm (Bresenham form, which equals
+    Bjorklund's patterns up to rotation).
   - `density(curve)`: onset probability = `density(t) × strength(t)`, sampled
     with the voice's Rng.
   - `pattern(...)`: fixed patterns (block, arpeggio, Alberti).
@@ -298,7 +303,8 @@ written in-house so students can read it.
 
 - `Piece(plan, harmony, voices, perform, synth=…)` runs the layers in order,
   lazily and cached.
-- Exposes `.plan`, `.chords`, `.events`, `.tempo`.
+- Exposes `.plan`, `.chords`, `.score` (notes before performance), `.events`
+  (performed notes), `.tempo`.
 - Methods: `.play()`, `.show(save=None)`, `.save_wav(path)`,
   `.save_midi(path)`, `.audio()` (returns an ndarray).
 - Each layer output can be inspected on its own (for example
