@@ -7,6 +7,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from .curve import Curve
 from .plan import Plan, Section
 from .rng import Rng
 from .theory import Chord, Scale, numeral_function, parse_roman
@@ -102,3 +103,121 @@ class Fixed:
             return out
 
         return by_section(plan, rng, make)
+
+
+# --- functional harmony -----------------------------------------------------
+FUNCTIONS = {
+    "major": {
+        "T": [("I", 0.7), ("vi", 0.3)],
+        "S": [("IV", 0.6), ("ii", 0.4)],
+        "D": [("V", 0.8), ("vii°", 0.2)],
+    },
+    "minor": {
+        "T": [("i", 0.7), ("VI", 0.3)],
+        "S": [("iv", 0.6), ("ii°", 0.4)],
+        "D": [("V", 0.8), ("vii°", 0.2)],
+    },
+}
+# Probability of the next harmonic function given the current one.
+TRANSITIONS = {
+    "T": {"T": 0.2, "S": 0.5, "D": 0.3},
+    "S": {"T": 0.1, "S": 0.2, "D": 0.7},
+    "D": {"T": 0.8, "S": 0.05, "D": 0.15},
+}
+
+Slot = tuple[float, float, tuple[str, str] | None]
+
+
+class Functional:
+    """Tonic -> pre-dominant -> dominant -> tonic as a Markov chain, with cadences.
+
+    Higher tension makes dominant chords (and secondary dominants V/V) more
+    likely. Each section opens on the tonic, has a half cadence (V) in the
+    middle, and closes with an authentic cadence (V -> I).
+    """
+
+    def __init__(self, rhythm: Curve | None = None):
+        self.rhythm = rhythm
+
+    def generate(self, plan: Plan, rng: Rng) -> ChordTrack:
+        bpb = plan.form.beats_per_bar
+
+        def make(sec: Section, srng: Rng) -> list[ChordSpan]:
+            key = plan.section_key(sec)
+            table = FUNCTIONS["minor" if key.is_minor() else "major"]
+            tonic, pre, dom = table["T"][0][0], table["S"][0][0], "V"
+            out: list[ChordSpan] = []
+            prev_fn, prev_num = "T", None
+            for onset, dur, forced in self._slots(sec, bpb, tonic, pre, dom):
+                tension = float(plan.tension(sec.start + onset))
+                if forced is not None:
+                    num, fn = forced
+                elif prev_num == "V/V":
+                    num, fn = "V", "D"
+                else:
+                    fn = self._next_function(prev_fn, tension, srng)
+                    num = self._pick(table[fn], prev_num, srng)
+                    if fn == "S" and tension > 0.5 and srng.random() < tension - 0.5:
+                        num = "V/V"
+                out.append(ChordSpan(onset, dur, parse_roman(num, key), fn))
+                prev_fn, prev_num = fn, num
+            return out
+
+        return self._prime(by_section(plan, rng, make), plan)
+
+    def _slots(self, sec: Section, bpb: float, tonic: str, pre: str, dom: str):
+        n = sec.bars
+        cad_end = n - 1
+        cad_half = n // 2 - 1 if n >= 4 else None
+        T, S, D = (tonic, "T"), (pre, "S"), (dom, "D")
+        slots: list[Slot] = []
+        for b in range(n):
+            t0 = b * bpb
+            if b == cad_end:
+                halves = [T]
+            elif b == cad_half:
+                halves = [D]
+            elif b + 1 == cad_end:
+                halves = [S, D]
+            elif cad_half is not None and b + 1 == cad_half:
+                halves = [None, S]
+            elif self.rhythm is not None and float(self.rhythm(sec.start + t0)) >= 1.5:
+                halves = [None, None]
+            else:
+                halves = [None]
+            if b == 0 and b != cad_end:
+                halves[0] = T
+            dur = bpb / len(halves)
+            slots += [(t0 + i * dur, dur, h) for i, h in enumerate(halves)]
+        return slots
+
+    @staticmethod
+    def _next_function(prev: str, tension: float, rng: Rng) -> str:
+        w = dict(TRANSITIONS[prev])
+        w["D"] *= 1.0 + tension
+        w["T"] *= 1.5 - tension
+        names = list(w)
+        p = np.array([w[k] for k in names])
+        return rng.choice(names, p=p / p.sum())
+
+    @staticmethod
+    def _pick(options, prev: str | None, rng: Rng) -> str:
+        opts = [(n, w) for n, w in options if n != prev] or list(options)
+        names = [n for n, _ in opts]
+        p = np.array([w for _, w in opts])
+        return rng.choice(names, p=p / p.sum())
+
+    @staticmethod
+    def _prime(track: ChordTrack, plan: Plan) -> ChordTrack:
+        """Primed sections (A') that are not last end deceptively on vi."""
+        spans = list(track)
+        last = len(plan.form.sections) - 1
+        for sec in plan.form.sections:
+            if sec.label == sec.base_label or sec.index == last:
+                continue
+            key = plan.section_key(sec)
+            deceptive = "VI" if key.is_minor() else "vi"
+            for i, s in enumerate(spans):
+                if abs(s.end - sec.end) < 1e-9:
+                    spans[i] = ChordSpan(s.onset, s.dur, parse_roman(deceptive, key), "T")
+        return ChordTrack(spans)
