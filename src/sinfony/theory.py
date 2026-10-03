@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import itertools
 import re
 from collections.abc import Iterable
 from dataclasses import dataclass, field
+
+import numpy as np
 
 NOTE_NAMES = ("C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B")
 
@@ -319,3 +322,79 @@ def L(chord: Chord) -> Chord:
     """Leading-tone exchange: C major <-> E minor (move the root down a semitone)."""
     r, q = _major_or_minor(chord)
     return Chord.build(r + 4, "min") if q == "maj" else Chord.build(r + 8, "maj")
+
+
+# --- voice leading --------------------------------------------------------
+def close_voicing(
+    chord: Chord, n: int, lo: int, hi: int, center: float | None = None
+) -> list[int]:
+    """``n`` adjacent chord tones in [lo, hi] whose average sits nearest ``center``."""
+    if lo >= hi:
+        raise ValueError(f"register needs lo < hi, got {lo}-{hi}")
+    pool = chord.pitches(lo, hi)
+    need = min(n, len(chord.pcs))
+    center = (lo + hi) / 2 if center is None else center
+    best: tuple[float, list[int]] | None = None
+    for i in range(len(pool) - n + 1):
+        window = pool[i : i + n]
+        if len({pc(p) for p in window}) < need:
+            continue
+        key = abs(sum(window) / n - center)
+        if best is None or key < best[0]:
+            best = (key, window)
+    if best is None:
+        raise ValueError(f"register {lo}-{hi} too narrow for {n} voices of {chord}")
+    return list(best[1])
+
+
+def voice_lead(voicing: list[int], target: Chord, lo: int, hi: int) -> list[int]:
+    """Move each voice to a tone of ``target`` with the least total motion.
+
+    Brute force over the 4 nearest target tones per voice. Ranking: cover as
+    many of the chord's pitch classes as possible, then minimize total
+    semitone motion, then prefer voices moving in opposite directions.
+    """
+    if lo >= hi:
+        raise ValueError(f"register needs lo < hi, got {lo}-{hi}")
+    pool = target.pitches(lo, hi)
+    if not pool:
+        raise ValueError(f"no tones of {target} in register {lo}-{hi}")
+    voicing = sorted(voicing)
+    options = [sorted(pool, key=lambda q, p=p: (abs(q - p), q))[:4] for p in voicing]
+    need = min(len(voicing), len(target.pcs))
+    best = None
+    for combo in itertools.product(*options):
+        moves = [q - p for p, q in zip(voicing, combo, strict=True)]
+        covered = len({pc(q) for q in combo})
+        cost = sum(abs(m) for m in moves)
+        contrary = sum(1 for a, b in itertools.combinations(moves, 2) if a * b < 0)
+        key = (covered < need, cost, -contrary, tuple(sorted(combo)))
+        if best is None or key < best[0]:
+            best = (key, combo)
+    return sorted(best[1])
+
+
+# --- consonance -----------------------------------------------------------
+def _plomp_levelt(f1: float, f2: float, a1: float, a2: float) -> float:
+    """Dissonance of two sine partials (Plomp-Levelt curve, Sethares' fit)."""
+    b1, b2, d_star, s1, s2 = 3.5, 5.75, 0.24, 0.0207, 18.96
+    s = d_star / (s1 * min(f1, f2) + s2)
+    d = abs(f2 - f1)
+    return min(a1, a2) * (np.exp(-b1 * s * d) - np.exp(-b2 * s * d))
+
+
+def roughness(pitches: Iterable[int], partials: int = 6) -> float:
+    """Sensory dissonance of notes with harmonic overtones (Sethares 1993).
+
+    Each note contributes partials k*f with amplitude 0.88^(k-1); every pair
+    of partials adds its Plomp-Levelt dissonance. Lower means smoother.
+    """
+    comps = [
+        (freq(p) * k, 0.88 ** (k - 1)) for p in pitches for k in range(1, partials + 1)
+    ]
+    return float(
+        sum(
+            _plomp_levelt(f1, f2, a1, a2)
+            for (f1, a1), (f2, a2) in itertools.combinations(comps, 2)
+        )
+    )
