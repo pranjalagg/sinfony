@@ -43,6 +43,14 @@ def _cadences(ev: Events, voice: Voice, plan: Plan, sec: Section) -> Events:
     return Events(notes, ev.span)
 
 
+def _join(part: Events, prev: list[Note]) -> Events:
+    """Shift a copy by whole octaves so it starts near the previous note."""
+    if not prev or not len(part):
+        return part
+    gap = prev[-1].pitch - part[0].pitch
+    return part.transpose(12 * round(gap / 12))
+
+
 def develop_period(
     voice: Voice, plan: Plan, chords: ChordTrack, grid: MeterGrid, rng: Rng, sec: Section
 ) -> Events:
@@ -58,7 +66,16 @@ def develop_period(
             [Note(sec.start, mlen, key.nearest((lo + hi) / 2), voice.vel, voice.name)],
             (sec.start, sec.start + mlen),
         )
-    step = int(rng.choice([1, -1, 2]))
+    # Sequence step: the scale-degree shift whose copy starts closest to where
+    # the motif ends, so the line connects (ties broken by a seeded shuffle).
+    options = [1, -1, 2, -2]
+    order = [options[i] for i in rng.gen.permutation(len(options))]
+    step = min(
+        order,
+        key=lambda k: abs(
+            _join(motif.transpose_diatonic(k, key), list(motif))[0].pitch - motif[-1].pitch
+        ),
+    )
     variation = (
         _invert_diatonic(motif, key) if rng.choice(["invert", "augment"]) == "invert"
         else motif.augment(2)
@@ -66,13 +83,14 @@ def develop_period(
     parts: list[Events] = []
     t, k = 0.0, 0
     while t < half - EPS:
-        parts.append((motif.transpose_diatonic(k * step, key) if k else motif).shift(t))
+        copy = motif.transpose_diatonic(k * step, key) if k else motif
+        parts.append(_join(copy, list(parts[-1]) if parts else []).shift(t))
         t += mlen
         k += 1
-    parts.append(motif.shift(half))
+    parts.append(_join(motif, list(parts[-1])).shift(half))  # same motif, nearest octave
     t = half + mlen
     while t < sec.length - EPS:
-        parts.append(variation.shift(t))
+        parts.append(_join(variation, list(parts[-1])).shift(t))
         t += variation.length
     notes = [
         replace(n, dur=min(n.dur, sec.end - n.onset))

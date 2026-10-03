@@ -23,9 +23,10 @@ def test_walk_moves_by_plr_within_sections(seed):
     for sec in plan.form.sections:
         spans = [s for s in track if sec.start <= s.onset < sec.end]
         assert spans[0].chord == home_chord(plan.section_key(sec))
+        resolves = sec.base_label == plan.form.sections[-1].base_label
         for a, b in zip(spans, spans[1:]):
-            if b is track[-1]:
-                continue  # the final span is forced home, not walked to
+            if resolves and b is spans[-1]:
+                continue  # sections like the ending are forced home, not walked to
             if a.chord != b.chord:
                 assert b.chord in (P(a.chord), L(a.chord), R(a.chord))
 
@@ -59,3 +60,13 @@ def test_ends_home_and_rate_zero_stays_home():
 def test_invalid_bars_per_chord():
     with pytest.raises(ValueError):
         TonnetzWalk(bars_per_chord=(3, 2))
+
+
+@pytest.mark.parametrize("seed", range(10))
+def test_repeated_sections_match_including_the_last(seed):
+    plan, track = make(seed)
+    first, last = plan.form.sections[0], plan.form.sections[-1]
+    assert first.base_label == last.base_label
+    a = [(s.onset - first.start, s.chord) for s in track if first.start <= s.onset < first.end]
+    b = [(s.onset - last.start, s.chord) for s in track if last.start <= s.onset < last.end]
+    assert a == b

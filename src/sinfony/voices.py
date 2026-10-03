@@ -18,7 +18,7 @@ from .rules import Context, Rule
 from .theory import Chord, Scale, close_voicing, pc, voice_lead
 
 EPS = 1e-6
-STRONG = 0.5
+STRONG = 0.75  # downbeat and mid-bar; other beats may carry passing tones
 ROLES = ("melody", "bass", "accomp", "pad", "loop")
 PATTERNS = ("block", "sustain", "arpeggio", "alberti")
 ORDER = {"arpeggio": (0, 1, 2, 1), "alberti": (0, 2, 1, 2)}
@@ -124,7 +124,7 @@ def requantize(
 ) -> Events:
     """Fit notes to the actual harmony: nearest allowed pitch, tonic at cadences."""
     lo, hi = register
-    out = []
+    out: list[Note] = []
     for n in ev:
         sec = plan.form.section_at(n.onset)
         key = plan.section_key(sec)
@@ -134,7 +134,10 @@ def requantize(
         if n.end >= sec.end - EPS and cadence_of(chord, key, True) == "authentic":
             tonics = [c for c in chord.pitches(lo, hi) if pc(c) == pc(key.root)]
             cands = tonics or cands
-        out.append(replace(n, pitch=min(cands, key=lambda c: (abs(c - p), c))))
+        prev = out[-1].pitch if out else p
+        # Stay close to the written pitch; among near-equal options keep the line smooth.
+        best = min(cands, key=lambda c: (abs(c - p) + 0.5 * max(0, abs(c - prev) - 2), c))
+        out.append(replace(n, pitch=best))
     return Events(out, ev.span)
 
 

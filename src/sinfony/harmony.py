@@ -266,13 +266,13 @@ class TonnetzWalk:
                         chord = self._move(chord, key, srng)
                 out.append(ChordSpan(t, dur, chord, "other"))
                 t += dur
+            if sec.base_label == final_label:  # the piece ends at home
+                end = out[-1]
+                out[-1] = ChordSpan(end.onset, end.dur, home_chord(key), end.function)
             return out
 
-        spans = list(by_section(plan, rng, make))
-        last = spans[-1]
-        home = home_chord(plan.section_key(plan.form.sections[-1]))
-        spans[-1] = ChordSpan(last.onset, last.dur, home, last.function)
-        return ChordTrack(spans)
+        final_label = plan.form.sections[-1].base_label
+        return by_section(plan, rng, make)
 
     @staticmethod
     def _move(chord: Chord, key: Scale, rng: Rng) -> Chord:

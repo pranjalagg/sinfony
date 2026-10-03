@@ -8,7 +8,7 @@ from sinfony.rhythm import MeterGrid, euclid, every
 from sinfony.rng import Rng
 from sinfony.rules import step_bias
 from sinfony.theory import Chord, Scale, close_voicing, parse_roman, pc
-from sinfony.voices import Voice, candidates, fold, realize, requantize
+from sinfony.voices import STRONG, Voice, candidates, fold, realize, requantize
 
 
 def setup(form=None, numerals=("I", "IV", "V", "I")):
@@ -76,7 +76,7 @@ def test_strong_beats_are_chord_tones_and_in_key():
     for n in ev:
         chord = chords.at(n.onset).chord
         assert plan.key.contains(n.pitch) or chord.contains(n.pitch)
-        if grid.strength(n.onset) >= 0.5:
+        if grid.strength(n.onset) >= STRONG:
             assert chord.contains(n.pitch)
 
 

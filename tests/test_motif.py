@@ -6,7 +6,7 @@ from sinfony.rhythm import MeterGrid, density
 from sinfony.rng import Rng
 from sinfony.rules import step_bias
 from sinfony.theory import pc
-from sinfony.voices import Voice, realize
+from sinfony.voices import STRONG, Voice, realize
 
 
 def setup(form=None, rhythm=None):
@@ -29,7 +29,9 @@ def test_consequent_restates_the_motif():
     ev = develop_period(voice, plan, chords, grid, Rng(1), plan.form.sections[0])
     a = [(n.onset, n.pitch) for n in ev if n.onset < 8]
     b = [(n.onset - 16, n.pitch) for n in ev if 16 <= n.onset < 24]
-    assert a and a == b
+    assert a and [t for t, _ in a] == [t for t, _ in b]
+    shifts = {pb - pa for (_, pa), (_, pb) in zip(a, b)}
+    assert len(shifts) == 1 and shifts.pop() % 12 == 0  # same motif, maybe another octave
 
 
 def test_sequence_is_a_diatonic_transposition():
@@ -64,7 +66,7 @@ def test_motif_melody_invariants():
     assert [x for x in sec_notes[1] if x[0] < 16] == [x for x in sec_notes[0] if x[0] < 16]
     assert sec_notes[1] != sec_notes[0]
     for n in ev:
-        if grid.strength(n.onset) >= 0.5:
+        if grid.strength(n.onset) >= STRONG:
             assert chords.at(n.onset).chord.contains(n.pitch)
     assert pc(ev[-1].pitch) == pc(plan.key.root)
 
