@@ -33,3 +33,14 @@ def test_piano_roll_png_and_svg(tmp_path):
     assert (tmp_path / "roll.png").stat().st_size > 0
     p.show(save=tmp_path / "roll.svg")
     assert (tmp_path / "roll.svg").stat().st_size > 0
+
+
+def test_figures_display_as_images_in_notebooks():
+    from IPython.core.interactiveshell import InteractiveShell
+
+    fmt = InteractiveShell.instance().display_formatter
+    p = small()
+    for fig in (arch().show(0, 1), p.chords.show(), p.show()):
+        data, _ = fmt.format(fig)
+        assert "image/png" in data
+        assert data["image/png"][:8] == b"\x89PNG\r\n\x1a\n"

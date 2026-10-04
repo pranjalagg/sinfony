@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import io
+
 import numpy as np
 from matplotlib.collections import PolyCollection
 from matplotlib.colors import to_rgba
@@ -12,12 +14,25 @@ FUNCTION_COLORS = {"T": "#2E6F9E", "S": "#588B3A", "D": "#C8553D", "other": "#88
 BLACK_KEYS = {1, 3, 6, 8, 10}
 
 
+class SinfonyFigure(Figure):
+    """A Figure that draws itself as an image in notebooks.
+
+    Built without pyplot (so nothing pops up twice); ``_repr_png_`` is what
+    Jupyter calls to display it.
+    """
+
+    def _repr_png_(self) -> bytes:
+        buf = io.BytesIO()
+        self.savefig(buf, format="png", bbox_inches="tight", dpi=110)
+        return buf.getvalue()
+
+
 def _color(i: int) -> str:
     return PALETTE[i % len(PALETTE)]
 
 
 def plot_curve(curve, t0: float = 0.0, t1: float = 1.0, n: int = 512) -> Figure:
-    fig = Figure(figsize=(7, 2.5), constrained_layout=True)
+    fig = SinfonyFigure(figsize=(7, 2.5), constrained_layout=True)
     ax = fig.add_subplot()
     t, y = curve.sample(t0, t1, n)
     ax.plot(t, y, color=PALETTE[0])
@@ -28,7 +43,7 @@ def plot_curve(curve, t0: float = 0.0, t1: float = 1.0, n: int = 512) -> Figure:
 
 
 def plot_chords(track) -> Figure:
-    fig = Figure(figsize=(10, 1.6), constrained_layout=True)
+    fig = SinfonyFigure(figsize=(10, 1.6), constrained_layout=True)
     ax = fig.add_subplot()
     for s in track:
         ax.barh(0, s.dur, left=s.onset, color=FUNCTION_COLORS.get(s.function, "#888888"),
@@ -45,7 +60,7 @@ def piano_roll(piece, save=None) -> Figure:
     pitches = [n.pitch for n in events] or [60]
     lo, hi = min(pitches) - 2, max(pitches) + 3
 
-    fig = Figure(figsize=(14, 7), constrained_layout=True)
+    fig = SinfonyFigure(figsize=(14, 7), constrained_layout=True)
     gs = fig.add_gridspec(2, 2, width_ratios=[0.6, 14], height_ratios=[6, 1])
     ax = fig.add_subplot(gs[0, 1])
     kb = fig.add_subplot(gs[0, 0], sharey=ax)
