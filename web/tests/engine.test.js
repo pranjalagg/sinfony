@@ -34,7 +34,7 @@ test("newest request wins while busy", async () => {
   assert.equal(w.sent.length, 1, "only one compose in flight");
   assert.equal(await second, null, "replaced request resolves null");
   w.reply({ id: w.sent[0].id, ok: true, result: "one" });
-  assert.equal(await first, "one");
+  assert.equal(await first, null, "the running request was replaced too");
   await new Promise((r) => setTimeout(r, 0));
   assert.equal(w.sent.length, 2);
   assert.deepEqual(w.sent[1].params, { seed: 3 });
@@ -56,4 +56,16 @@ test("progress messages go to onProgress", () => {
   new Engine(w, { onProgress: (p) => seen.push(p) });
   w.reply({ progress: 0.5, stage: "Loading numpy" });
   assert.deepEqual(seen, [{ progress: 0.5, stage: "Loading numpy" }]);
+});
+
+test("a running compose replaced by a newer request resolves null", async () => {
+  const w = new FakeWorker();
+  const engine = new Engine(w);
+  const first = engine.compose({ seed: 1 });
+  const second = engine.compose({ seed: 2 });
+  w.reply({ id: w.sent[0].id, ok: true, result: "stale" });
+  assert.equal(await first, null, "stale result is not applied");
+  await new Promise((r) => setTimeout(r, 0));
+  w.reply({ id: w.sent[1].id, ok: true, result: "fresh" });
+  assert.equal(await second, "fresh");
 });

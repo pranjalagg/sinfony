@@ -31,7 +31,8 @@ def _number(params: dict, name: str, lo: float, hi: float, integer: bool = False
     if integer and int(value) != value:
         raise ValueError(f"{name} must be a whole number")
     if not lo <= value <= hi:
-        raise ValueError(f"{name} must be between {lo:g} and {hi:g}")
+        bounds = (f"{lo:d}", f"{hi:d}") if integer else (f"{lo:g}", f"{hi:g}")
+        raise ValueError(f"{name} must be between {bounds[0]} and {bounds[1]}")
     return int(value) if integer else float(value)
 
 

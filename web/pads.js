@@ -3,6 +3,17 @@
 import { fitCanvas } from "./canvas.js";
 
 export const POINTS = 64;
+const TOP = 20; // room for section labels
+const BOTTOM = 4;
+
+/** Value (0..1) -> canvas y. yToValue is its exact inverse, so the line lands under the pen. */
+export function valueToY(v, H) {
+  return TOP + (1 - v) * (H - TOP - BOTTOM);
+}
+
+export function yToValue(py, H) {
+  return Math.min(1, Math.max(0, 1 - (py - TOP) / (H - TOP - BOTTOM)));
+}
 
 /** Place sections across [0, 1]: by beats when known, else equal widths. */
 export function layoutSections(sections) {
@@ -120,7 +131,7 @@ export class PadView {
 
   _uv(e) {
     const r = this.canvas.getBoundingClientRect();
-    return { u: (e.clientX - r.left) / r.width, y: 1 - (e.clientY - r.top) / r.height };
+    return { u: (e.clientX - r.left) / r.width, y: yToValue(e.clientY - r.top, r.height) };
   }
 
   _down(e) {
@@ -204,7 +215,7 @@ export class PadView {
       ctx.beginPath();
       pts.forEach((v, k) => {
         const x = pointU(sec, k) * W;
-        const y = (1 - v) * (H - 24) + 20;
+        const y = valueToY(v, H);
         if (k) ctx.lineTo(x, y);
         else ctx.moveTo(x, y);
       });

@@ -4,7 +4,7 @@ import { Engine } from "./engine.js";
 import { POINTS, PadView, mergePads, sameLayout } from "./pads.js";
 import { Player, beatAtSeconds } from "./player.js";
 import { drawRoll } from "./roll.js";
-import { decodeHash, encodeHash, quantize } from "./share.js";
+import { clampSeed, decodeHash, encodeHash, quantize } from "./share.js";
 import { Synth } from "./synth.js";
 
 const $ = (id) => document.getElementById(id);
@@ -150,7 +150,11 @@ $("style").addEventListener("change", (e) => {
   refreshPads();
   requestCompose();
 });
-$("seed").addEventListener("change", (e) => setSeed(Math.max(0, Math.floor(Number(e.target.value) || 0))));
+$("seed").addEventListener("change", (e) => {
+  const seed = clampSeed(Number(e.target.value));
+  e.target.value = seed;
+  setSeed(seed);
+});
 $("dice").addEventListener("click", () => {
   const seed = Math.floor(Math.random() * 100000);
   $("seed").value = seed;

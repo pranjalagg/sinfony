@@ -58,3 +58,12 @@ test("empty hash gives defaults", () => {
   assert.equal(state.seed, 0);
   assert.deepEqual(ignored, []);
 });
+
+test("clampSeed keeps seeds in the engine's range", async () => {
+  const { clampSeed, SEED_MAX } = await import("../share.js");
+  assert.equal(clampSeed(3000000000), SEED_MAX);
+  assert.equal(clampSeed(-5), 0);
+  assert.equal(clampSeed(12.7), 12);
+  assert.equal(clampSeed(Number.NaN), 0);
+  assert.equal(SEED_MAX, 2 ** 31 - 1);
+});

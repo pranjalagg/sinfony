@@ -40,7 +40,9 @@ export class Engine {
       });
     }
     this.busy = true;
-    return this._send("compose", params).finally(() => {
+    return this._send("compose", params)
+      .then((result) => (this.pending ? null : result)) // a newer request replaced this one
+      .finally(() => {
       this.busy = false;
       const next = this.pending;
       this.pending = null;

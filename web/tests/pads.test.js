@@ -78,3 +78,12 @@ test("sameLayout compares materials in order", () => {
   assert.ok(!sameLayout(a, [{ material: "A" }, { material: "B" }, { material: "C" }]));
   assert.ok(!sameLayout(a, [{ material: "B" }, { material: "A" }]));
 });
+
+test("pad input and display share one vertical mapping", async () => {
+  const { valueToY, yToValue } = await import("../pads.js");
+  for (const H of [100, 300]) {
+    for (const v of [0, 0.25, 0.9, 1]) assert.ok(Math.abs(yToValue(valueToY(v, H), H) - v) < 1e-12);
+    assert.equal(yToValue(0, H), 1, "touching the very top reaches 1");
+    assert.equal(yToValue(H, H), 0);
+  }
+});

@@ -92,3 +92,8 @@ def test_midi_bytes():
     mf = mido.MidiFile(file=io.BytesIO(data))
     ons = [m for t in mf.tracks for m in t if m.type == "note_on" and m.velocity > 0]
     assert len(ons) == len(web.compose(params)["notes"])
+
+
+def test_seed_range_message_is_readable():
+    with pytest.raises(ValueError, match="between 0 and 2147483647"):
+        web.compose({"style": "tonal", "seed": 2**31})

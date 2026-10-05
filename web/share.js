@@ -5,7 +5,13 @@ const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789
 const STYLES = ["tonal", "ambient"];
 const RANGES = { tempo: [40, 200], wiggle: [0, 1], smooth: [0, 5], density: [0, 1] };
 
+export const SEED_MAX = 2 ** 31 - 1;
 const clamp01 = (v) => Math.min(1, Math.max(0, v));
+
+/** Seeds the engine accepts: whole numbers in [0, 2^31 - 1]. */
+export function clampSeed(n) {
+  return Number.isFinite(n) ? Math.min(SEED_MAX, Math.max(0, Math.floor(n))) : 0;
+}
 const fmt = (x) => String(Math.round(x * 1000) / 1000);
 
 /** Round a value to one of the 64 levels a link can store. */
