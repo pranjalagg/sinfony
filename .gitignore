@@ -8,3 +8,5 @@ __pycache__/
 *.mid
 *.png
 *.svg
+dist/
+web/wheels/
