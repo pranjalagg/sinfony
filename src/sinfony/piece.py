@@ -30,6 +30,7 @@ class Piece:
         perform: Perform | None = None,
         instruments: Instrument | dict[str, Instrument] = EPIANO,
         reverb: Reverb | None = _DEFAULT_REVERB,
+        meta: dict | None = None,
     ):
         names = [v.name for v in voices]
         if not names:
@@ -42,6 +43,7 @@ class Piece:
         self.perform = perform if perform is not None else Perform()
         self.instruments = instruments
         self.reverb = reverb
+        self.meta = dict(meta or {})
         self.grid = MeterGrid(plan.form.meter)
 
     @cached_property

@@ -146,3 +146,11 @@ class Plan:
 
     def key_at(self, t: float) -> Scale:
         return self.section_key(self.form.section_at(t))
+
+
+PAD_POINTS = 64
+
+
+def pad_positions(section: Section, n: int = PAD_POINTS) -> np.ndarray:
+    """Beats where a drawing pad samples a section: n evenly spaced cell centres."""
+    return section.start + (np.arange(n) + 0.5) * section.length / n

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from .curve import arch, pink, sine
+from .curve import Curve, arch, lift, pink, sine
 from .harmony import Functional, TonnetzWalk
 from .perform import Perform
 from .piece import Piece
@@ -11,12 +11,12 @@ from .render.synth import BELL, EPIANO, PAD, Reverb
 from .rhythm import density, euclid
 from .rng import Rng
 from .rules import avoid_repeat, end_on_tonic, gap_fill, resolve_leading_tone, step_bias
-from .theory import Scale
+from .theory import Scale, pc
 from .voices import Voice
 
 OVERRIDES = (
     "key", "meter", "tempo", "form", "plan", "harmony", "voices", "perform",
-    "instruments", "reverb",
+    "instruments", "reverb", "contour", "tension", "wiggle", "smoothness", "density",
 )
 AMBIENT_MODES = ("dorian", "lydian", "aeolian", "pentatonic")
 
@@ -25,6 +25,30 @@ def _check(overrides: dict) -> None:
     unknown = set(overrides) - set(OVERRIDES)
     if unknown:
         raise TypeError(f"unknown override(s) {sorted(unknown)}; use {OVERRIDES}")
+
+
+def _ranged(name: str, value, hi: float) -> float:
+    v = float(value)
+    if not 0.0 <= v <= hi:
+        raise ValueError(f"{name} must be between 0 and {hi:g}, got {v:g}")
+    return v
+
+
+def _params(style: str, seed, plan: Plan, wiggle: float, smooth: float, dens: float) -> dict:
+    key = plan.key
+    if style == "tonal":
+        mode = "minor" if key.is_minor() else "major"
+    else:
+        mode = key.name
+    return {
+        "style": style,
+        "seed": seed,
+        "key": f"{pc(key.root)}-{mode}",
+        "tempo": round(float(plan.tempo(0.0)), 3),
+        "wiggle": wiggle,
+        "smooth": smooth,
+        "density": dens,
+    }
 
 
 def tonal(seed: int = 0, **overrides) -> Piece:
@@ -40,22 +64,27 @@ def tonal(seed: int = 0, **overrides) -> Piece:
     meter = overrides.get("meter", (3, 4) if triple else (4, 4))
     tempo = overrides.get("tempo", tempo_choice)
     form = overrides.get("form", Form("A A' B A", bars=8, meter=meter))
-    plan = overrides.get("plan", Plan(seed, key=key, form=form, tempo=tempo, modulate=True))
+    plan = overrides.get(
+        "plan",
+        Plan(seed, key=key, form=form, tempo=tempo, tension=overrides.get("tension"), modulate=True),
+    )
     bpb = plan.form.beats_per_bar
+    wiggle = _ranged("wiggle", overrides.get("wiggle", 0.15), 1.0)
+    smooth = _ranged("smoothness", overrides.get("smoothness", 2.5), 5.0)
+    dens = _ranged("density", overrides.get("density", 0.85), 1.0)
 
-    # Melody shape: an arch per 4-bar phrase, plus 1/f wandering.
-    contour = (
-        0.45 * arch().tile(4 * bpb) + 0.25 + 0.15 * pink(rng.child("contour"), base=1 / 8)
-    ).clip(0.0, 1.0)
+    # Melody shape: an arch per 4-bar phrase (or your drawing), plus 1/f wandering.
+    shape = overrides.get("contour", 0.45 * arch().tile(4 * bpb) + 0.25)
+    contour = (shape + wiggle * pink(rng.child("contour"), base=1 / 8)).clip(0.0, 1.0)
     voices = overrides.get(
         "voices",
         [
             Voice(
                 "melody", "melody", (60, 84),
-                rhythm=density(0.85, step=0.5),
+                rhythm=density(dens, step=0.5),
                 contour=contour,
                 rules=[
-                    step_bias(2.5), gap_fill(4.0), avoid_repeat(2.0, 2),
+                    step_bias(smooth), gap_fill(4.0), avoid_repeat(2.0, 2),
                     resolve_leading_tone(3.0), end_on_tonic(20.0),
                 ],
                 motif=True,
@@ -65,6 +94,12 @@ def tonal(seed: int = 0, **overrides) -> Piece:
             Voice("accomp", "accomp", (48, 67), pattern={"A": "alberti", "B": "block"}, vel=0.42),
         ],
     )
+    meta = {
+        "style": "tonal",
+        "seed": seed,
+        "contour_shape": lift(shape) if not isinstance(shape, Curve) else shape,
+        "params": _params("tonal", seed, plan, wiggle, smooth, dens),
+    }
     return Piece(
         plan,
         overrides.get("harmony", Functional()),
@@ -72,6 +107,7 @@ def tonal(seed: int = 0, **overrides) -> Piece:
         overrides.get("perform", Perform(jitter_ms=6.0)),
         overrides.get("instruments", EPIANO),
         overrides.get("reverb", Reverb(seconds=1.2, mix=0.18)),
+        meta=meta,
     )
 
 
@@ -87,21 +123,25 @@ def ambient(seed: int = 0, **overrides) -> Piece:
     meter = overrides.get("meter", (4, 4))
     tempo = overrides.get("tempo", tempo_choice)
     form = overrides.get("form", Form("A B A' C A", bars=8, meter=meter))
-    plan = overrides.get("plan", Plan(seed, key=key, form=form, tempo=tempo))
+    plan = overrides.get(
+        "plan", Plan(seed, key=key, form=form, tempo=tempo, tension=overrides.get("tension"))
+    )
+    wiggle = _ranged("wiggle", overrides.get("wiggle", 0.25), 1.0)
+    smooth = _ranged("smoothness", overrides.get("smoothness", 1.0), 5.0)
+    dens = _ranged("density", overrides.get("density", 0.35), 1.0)
 
     subset = (0, 1, 2, 4, 5) if len(plan.key) == 7 else None  # pentatonic subset of a mode
-    contour = (
-        0.5 + 0.25 * sine(1 / 32) + 0.25 * pink(rng.child("contour"), base=1 / 16)
-    ).clip(0.0, 1.0)
+    shape = overrides.get("contour", 0.5 + 0.25 * sine(1 / 32))
+    contour = (shape + wiggle * pink(rng.child("contour"), base=1 / 16)).clip(0.0, 1.0)
     voices = overrides.get(
         "voices",
         [
             Voice("pad", "pad", (48, 72), vel=0.35),
             Voice(
                 "melody", "melody", (62, 86),
-                rhythm=density(0.35, step=1.0, max_dur=4.0),
+                rhythm=density(dens, step=1.0, max_dur=4.0),
                 contour=contour,
-                rules=[step_bias(1.0), gap_fill(3.0), avoid_repeat(2.0, 3)],
+                rules=[step_bias(smooth), gap_fill(3.0), avoid_repeat(2.0, 3)],
                 temperature=0.8,
                 subset=subset,
                 vel=0.5,
@@ -113,6 +153,12 @@ def ambient(seed: int = 0, **overrides) -> Piece:
                   cell=(4, 3, 1, 0, 2), vel=0.22),
         ],
     )
+    meta = {
+        "style": "ambient",
+        "seed": seed,
+        "contour_shape": lift(shape) if not isinstance(shape, Curve) else shape,
+        "params": _params("ambient", seed, plan, wiggle, smooth, dens),
+    }
     return Piece(
         plan,
         overrides.get("harmony", TonnetzWalk(bars_per_chord=(2, 4))),
@@ -120,4 +166,5 @@ def ambient(seed: int = 0, **overrides) -> Piece:
         overrides.get("perform", Perform(jitter_ms=15.0, tempo_arc=0.03, dyn_depth=0.2, ritard=0.3)),
         overrides.get("instruments", {"pad": PAD, "melody": EPIANO, "loop1": BELL, "loop2": BELL}),
         overrides.get("reverb", Reverb(seconds=3.5, mix=0.4)),
+        meta=meta,
     )
