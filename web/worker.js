@@ -1,7 +1,8 @@
-/* Pyodide worker: runs sinfony.web in the browser (classic worker, uses importScripts). */
+/* Pyodide worker: runs sinfony.web in the browser. Module worker: Pyodide 314 has no classic-worker support. */
 
-const PYODIDE_VERSION = "314.0.7";
-const PYODIDE_URL = `https://cdn.jsdelivr.net/pyodide/v${PYODIDE_VERSION}/full/`;
+import { loadPyodide } from "https://cdn.jsdelivr.net/pyodide/v314.0.7/full/pyodide.mjs";
+
+const PYODIDE_URL = "https://cdn.jsdelivr.net/pyodide/v314.0.7/full/";
 
 const progress = (value, stage) => self.postMessage({ progress: value, stage });
 
@@ -27,7 +28,6 @@ def _call(op, params_json):
 
 const ready = (async () => {
   progress(0.05, "Loading Python");
-  importScripts(`${PYODIDE_URL}pyodide.js`);
   const py = await loadPyodide({ indexURL: PYODIDE_URL });
   progress(0.45, "Loading numpy");
   await py.loadPackage(["numpy", "micropip"]);

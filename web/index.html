@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>sinfony · draw music</title>
+  <meta name="description" content="Draw a melody and a tension curve; sinfony composes music from the mathematics.">
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <h1 class="brand">sinfony</h1>
+      <button id="play" class="primary" disabled>▶ Play</button>
+      <label>Seed
+        <span class="row"><input id="seed" type="number" min="0" step="1" value="0"><button id="dice" title="Random seed" aria-label="Random seed">🎲</button></span>
+      </label>
+      <label>Style
+        <select id="style"><option value="tonal">Tonal</option><option value="ambient">Ambient</option></select>
+      </label>
+      <label>Key
+        <span class="row"><select id="root" aria-label="Key root"></select><select id="mode" aria-label="Mode"></select></span>
+      </label>
+      <label>Tempo <output id="tempo-out"></output><input id="tempo" type="range" min="40" max="200" step="1"></label>
+      <label>Wiggle <output id="wiggle-out"></output><input id="wiggle" type="range" min="0" max="1" step="0.01"></label>
+      <label>Smoothness <output id="smooth-out"></output><input id="smooth" type="range" min="0" max="5" step="0.1"></label>
+      <label>Density <output id="density-out"></output><input id="density" type="range" min="0" max="1" step="0.01"></label>
+      <label class="check"><input id="loop" type="checkbox"> Loop</label>
+      <div class="actions">
+        <button id="share">🔗 Share</button>
+        <button id="midi">⬇ MIDI</button>
+        <button id="reset">↺ Reset drawing</button>
+      </div>
+    </aside>
+    <main class="stage">
+      <div class="notices">
+        <div id="loading" class="banner">
+          <span id="loading-stage">Warming up the orchestra…</span>
+          <progress id="loading-bar" max="1" value="0"></progress>
+          <small>First visit downloads about 10 MB, cached after that. You can draw already.</small>
+        </div>
+        <div id="error" class="banner error" hidden>
+          <span><strong>Couldn't load the engine.</strong> <span id="error-text"></span></span>
+          <button id="retry" class="primary">Retry</button>
+        </div>
+      </div>
+      <section class="pad">
+        <header>Melody contour <small>draw the shape of the tune · ⛓ sections repeat, so they are drawn together</small></header>
+        <canvas id="contour"></canvas>
+      </section>
+      <section class="pad short">
+        <header>Tension <small>low = calm · high = intense</small></header>
+        <canvas id="tension"></canvas>
+      </section>
+      <section class="pad">
+        <header>Result <small id="status"></small></header>
+        <canvas id="roll"></canvas>
+      </section>
+    </main>
+  </div>
+  <div id="toast" role="status" aria-live="polite"></div>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
