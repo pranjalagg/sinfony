@@ -145,3 +145,6 @@ def render(
     if peak > 0:
         out = 0.98 * np.tanh(1.5 * out / peak) / np.tanh(1.5)
     return out.astype(np.float32)
+
+
+INSTRUMENTS: dict[str, Instrument] = {"sine": SINE, "epiano": EPIANO, "pad": PAD, "bell": BELL}
