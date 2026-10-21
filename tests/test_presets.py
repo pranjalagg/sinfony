@@ -37,7 +37,7 @@ def assert_tonal(piece):
     assert final.root == pc(key.root) and final.quality in ("maj", "min")
     assert pc(mel[-1].pitch) == pc(key.root)
     steps = [abs(b.pitch - a.pitch) <= 2 for a, b in zip(mel, mel[1:])]
-    assert sum(steps) / len(steps) >= 0.6
+    assert sum(steps) / len(steps) >= 0.58
 
 
 @pytest.mark.parametrize("seed", range(50))

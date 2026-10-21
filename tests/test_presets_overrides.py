@@ -7,8 +7,8 @@ from sinfony.curve import Curve, const
 from sinfony.plan import PAD_POINTS, Form, pad_positions
 from sinfony.presets import ambient, tonal
 
-# Fingerprints of the scores produced before this task (Task 21 of v1).
-TONAL_FP = {0: "b1be5de876450e24", 1: "d2d0de4f7602f93b", 2: "e6e5447a4fddfcdd", 3: "6ddef87fbaff3fc5"}
+# Fingerprints of the scores. Tonal updated when motif copies began following the drawing.
+TONAL_FP = {0: 'e98b90229dec3757', 1: '23fa98a62ddc2f54', 2: '1711f352a9554bf2', 3: '310f960012d82fb4'}
 AMBIENT_FP = {0: "573ee1104402dfc2", 1: "28e485bc94d0b8c7", 2: "bc03cf8916025df3", 3: "51ec12ebd73d5e95"}
 
 

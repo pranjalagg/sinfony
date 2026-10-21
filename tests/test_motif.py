@@ -1,4 +1,6 @@
-from sinfony.curve import sine
+import numpy as np
+
+from sinfony.curve import Curve, sine
 from sinfony.harmony import Functional
 from sinfony.motif import develop_period
 from sinfony.plan import Form, Plan
@@ -9,7 +11,7 @@ from sinfony.theory import pc
 from sinfony.voices import STRONG, Voice, realize
 
 
-def setup(form=None, rhythm=None):
+def setup(form=None, rhythm=None, contour=None):
     plan = Plan(2, form=form or Form("A A' B A", bars=8))
     chords = Functional().generate(plan, plan.rng.child("harmony"))
     voice = Voice(
@@ -17,35 +19,45 @@ def setup(form=None, rhythm=None):
         "melody",
         (60, 84),
         rhythm=rhythm or density(0.85),
-        contour=(0.5 + 0.3 * sine(1 / 16)).clip(0, 1),
+        contour=contour or (0.5 + 0.3 * sine(1 / 16)).clip(0, 1),
         rules=[step_bias(1.5)],
         motif=True,
     )
     return plan, chords, MeterGrid(plan.form.meter), voice
 
 
+def shifts_by_degree(key, src, dst):
+    return [
+        k
+        for k in range(-14, 15)
+        if [key.degree(key.degree_of(n.pitch) + k) for n in src] == [n.pitch for n in dst]
+    ]
+
+
 def test_consequent_restates_the_motif():
     plan, chords, grid, voice = setup()
     ev = develop_period(voice, plan, chords, grid, Rng(1), plan.form.sections[0])
-    a = [(n.onset, n.pitch) for n in ev if n.onset < 8]
-    b = [(n.onset - 16, n.pitch) for n in ev if 16 <= n.onset < 24]
-    assert a and [t for t, _ in a] == [t for t, _ in b]
-    shifts = {pb - pa for (_, pa), (_, pb) in zip(a, b)}
-    assert len(shifts) == 1 and shifts.pop() % 12 == 0  # same motif, maybe another octave
+    a = [n for n in ev if n.onset < 8]
+    b = [n for n in ev if 16 <= n.onset < 24]
+    assert a and [n.onset for n in a] == [n.onset - 16 for n in b]
+    assert shifts_by_degree(plan.key, a, b)  # same motif, moved diatonically
 
 
 def test_sequence_is_a_diatonic_transposition():
     plan, chords, grid, voice = setup()
     ev = develop_period(voice, plan, chords, grid, Rng(1), plan.form.sections[0])
-    key = plan.key
     motif = [n for n in ev if n.onset < 4]
     seq = [n for n in ev if 8 <= n.onset < 12]
-    matches = [
-        k
-        for k in (1, -1, 2)
-        if [key.degree(key.degree_of(n.pitch) + k) for n in motif] == [n.pitch for n in seq]
-    ]
-    assert matches
+    assert shifts_by_degree(plan.key, motif, seq)
+
+
+def test_late_bars_follow_the_drawing():
+    low_then_high = Curve(lambda t: np.where(np.asarray(t, dtype=float) < 16, 0.2, 0.85), "low then high")
+    plan, chords, grid, voice = setup(contour=low_then_high)
+    ev = develop_period(voice, plan, chords, grid, Rng(1), plan.form.sections[0])
+    early = [n.pitch for n in ev if n.onset < 16]
+    late = [n.pitch for n in ev if 16 <= n.onset < 32]
+    assert sum(late) / len(late) - sum(early) / len(early) >= 5
 
 
 def test_cadence_bars_hold_one_long_note():

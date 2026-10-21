@@ -43,18 +43,35 @@ def _cadences(ev: Events, voice: Voice, plan: Plan, sec: Section) -> Events:
     return Events(notes, ev.span)
 
 
-def _join(part: Events, prev: list[Note]) -> Events:
-    """Shift a copy by whole octaves so it starts near the previous note."""
-    if not prev or not len(part):
+# Cost of a leap into a copy, per semitone, against 1 per semitone of missing the drawing.
+JOIN_WEIGHT = 0.5
+
+
+def _place(part: Events, key: Scale, voice: Voice, prev_last: int | None) -> Events:
+    """Move a copy along the scale to where the drawing asks, staying joined to the line."""
+    if not len(part):
         return part
-    gap = prev[-1].pitch - part[0].pitch
-    return part.transpose(12 * round(gap / 12))
+    lo, hi = voice.register
+    target = sum(lo + float(voice.contour(n.onset)) * (hi - lo) for n in part) / len(part)
+    options = [(d, part.transpose_diatonic(d, key)) for d in range(-14, 15)]
+    inside = [(d, c) for d, c in options if all(lo <= n.pitch <= hi for n in c)]
+
+    def cost(item):
+        d, cand = item
+        mean = sum(n.pitch for n in cand) / len(cand)
+        join = JOIN_WEIGHT * abs(cand[0].pitch - prev_last) if prev_last is not None else 0.0
+        return (abs(mean - target) + join, abs(d), d)
+
+    return min(inside or options, key=cost)[1]
 
 
 def develop_period(
     voice: Voice, plan: Plan, chords: ChordTrack, grid: MeterGrid, rng: Rng, sec: Section
 ) -> Events:
-    """Motif -> sequence -> half cadence | motif -> variation -> authentic cadence."""
+    """Motif -> sequence -> half cadence | motif -> variation -> authentic cadence.
+
+    Every copy of the motif is placed diatonically where the drawing asks.
+    """
     bpb = plan.form.beats_per_bar
     key = plan.section_key(sec)
     mlen = (2 if sec.bars >= 8 else 1) * bpb
@@ -66,31 +83,22 @@ def develop_period(
             [Note(sec.start, mlen, key.nearest((lo + hi) / 2), voice.vel, voice.name)],
             (sec.start, sec.start + mlen),
         )
-    # Sequence step: the scale-degree shift whose copy starts closest to where
-    # the motif ends, so the line connects (ties broken by a seeded shuffle).
-    options = [1, -1, 2, -2]
-    order = [options[i] for i in rng.gen.permutation(len(options))]
-    step = min(
-        order,
-        key=lambda k: abs(
-            _join(motif.transpose_diatonic(k, key), list(motif))[0].pitch - motif[-1].pitch
-        ),
-    )
     variation = (
         _invert_diatonic(motif, key) if rng.choice(["invert", "augment"]) == "invert"
         else motif.augment(2)
     )
-    parts: list[Events] = []
-    t, k = 0.0, 0
+    def inside(ev: Events) -> Events:  # a copy may run past the section; only its notes inside count
+        return ev.filter(lambda n: n.onset < sec.end - EPS)
+
+    parts: list[Events] = [motif]
+    t = mlen
     while t < half - EPS:
-        copy = motif.transpose_diatonic(k * step, key) if k else motif
-        parts.append(_join(copy, list(parts[-1]) if parts else []).shift(t))
+        parts.append(_place(inside(motif.shift(t)), key, voice, parts[-1][-1].pitch))
         t += mlen
-        k += 1
-    parts.append(_join(motif, list(parts[-1])).shift(half))  # same motif, nearest octave
+    parts.append(_place(inside(motif.shift(half)), key, voice, parts[-1][-1].pitch))  # same motif again
     t = half + mlen
     while t < sec.length - EPS:
-        parts.append(_join(variation, list(parts[-1])).shift(t))
+        parts.append(_place(inside(variation.shift(t)), key, voice, parts[-1][-1].pitch))
         t += variation.length
     notes = [
         replace(n, dur=min(n.dur, sec.end - n.onset))

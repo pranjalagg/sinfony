@@ -97,3 +97,25 @@ def test_midi_bytes():
 def test_seed_range_message_is_readable():
     with pytest.raises(ValueError, match="between 0 and 2147483647"):
         web.compose({"style": "tonal", "seed": 2**31})
+
+
+def melody_pitches(piece):
+    return [n.pitch for n in piece.events if n.voice == "melody"]
+
+
+@pytest.mark.parametrize("seed", [0, 3])
+def test_redrawing_late_bars_changes_tonal_melody(seed):
+    flat = web.build({"style": "tonal", "seed": seed, "contour": {"A": [0.5] * P}})
+    late = web.build({"style": "tonal", "seed": seed, "contour": {"A": [0.5] * 16 + [0.95] * 48}})
+    assert melody_pitches(flat) != melody_pitches(late)
+
+
+@pytest.mark.parametrize("seed", range(5))
+def test_drawing_still_leads_at_max_smoothness(seed):
+    piece = web.build({"style": "tonal", "seed": seed, "smooth": 5, "contour": {"A": [0.15] * 32 + [0.9] * 32}})
+    sec = piece.plan.form.sections[0]
+    mid = (sec.start + sec.end) / 2
+    mel = [n for n in piece.events if n.voice == "melody" and sec.start <= n.onset < sec.end]
+    first = [n.pitch for n in mel if n.onset < mid]
+    second = [n.pitch for n in mel if n.onset >= mid]
+    assert sum(second) / len(second) - sum(first) / len(first) >= 4
