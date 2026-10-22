@@ -1,9 +1,10 @@
 // sinfony playground: wiring between controls, pads, the Python engine, and audio.
 
 import { Engine } from "./engine.js";
+import { exampleHash, loadExamples } from "./examples.js";
 import { POINTS, PadView, mergePads, sameLayout } from "./pads.js";
 import { Player, beatAtSeconds } from "./player.js";
-import { drawRoll } from "./roll.js";
+import { drawRoll, legendItems } from "./roll.js";
 import { clampSeed, decodeHash, encodeHash, quantize } from "./share.js";
 import { Synth } from "./synth.js";
 
@@ -311,11 +312,67 @@ function applyPiece(piece) {
   updateHash();
   if (player) player.load(piece);
   $("play").disabled = false;
+  renderLegend(piece.style);
   const [pc, mode] = piece.params.key.split("-");
   $("status").textContent =
     `${NOTE_NAMES[Number(pc)]} ${mode} · ${Math.round(piece.params.tempo)} bpm · ${Math.round(piece.duration_s)} s`;
   redraw();
 }
+
+// ---------- chord legend
+function renderLegend(style) {
+  const legend = $("legend");
+  const items = legendItems(style).map((item) => {
+    const swatch = document.createElement("span");
+    swatch.className = "swatch";
+    swatch.style.background = `var(--${item.colorKey.replace(/[A-Z]/g, (m) => "-" + m.toLowerCase())})`;
+    const row = document.createElement("span");
+    row.append(swatch, item.text);
+    return row;
+  });
+  legend.replaceChildren(...items);
+}
+
+// ---------- examples
+function showListen(example) {
+  $("listen-text").textContent = example ? example.listen : "";
+  $("listen").hidden = !example;
+  for (const chip of $("examples").querySelectorAll(".chip")) {
+    chip.setAttribute("aria-pressed", String(example !== null && chip.dataset.id === example.id));
+  }
+}
+
+function openExample(example) {
+  const hash = exampleHash(example);
+  if (location.hash === hash) {
+    loadFromHash();
+    refreshPads();
+    requestCompose();
+  } else {
+    location.hash = hash; // the hashchange handler loads and composes it
+  }
+  showListen(example);
+}
+
+async function setUpExamples() {
+  const examples = await loadExamples();
+  if (!examples.length) return;
+  const label = document.createElement("span");
+  label.className = "label";
+  label.textContent = "Try an example:";
+  const chips = examples.map((example) => {
+    const chip = document.createElement("button");
+    chip.className = "chip";
+    chip.textContent = example.name;
+    chip.dataset.id = example.id;
+    chip.setAttribute("aria-pressed", "false");
+    chip.addEventListener("click", () => openExample(example));
+    return chip;
+  });
+  $("examples").replaceChildren(label, ...chips);
+  $("examples").hidden = false;
+}
+$("listen-close").addEventListener("click", () => showListen(null));
 
 // ---------- share links
 function updateHash() {
@@ -373,4 +430,5 @@ loadFromHash();
 refreshPads();
 startEngine();
 requestCompose();
+setUpExamples();
 requestAnimationFrame(frame);
