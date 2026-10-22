@@ -241,3 +241,11 @@ memorable, but choose where each copy sits from the drawing:
 - Negative harmony as a new transformation: pc ↦ (2·tonic + 7 − pc) mod 12.
 - Tension that also re-chooses chords on repeated sections.
 - Chord detection/analysis of imported MIDI, and a drums voice with pattern strings (musicpy ideas).
+
+## 13. Amendment (2026-10-22, after first hands-on use)
+
+The first build made the side panel 1,774px tall on an 800px screen, and the page followed the OS dark mode, which showed the brown dark palette to a user who expected the light Material look. Changes:
+
+- **Compact panel.** Each control shows one short line (≤ 60 characters). The full plain explanation and the formula sit behind an ⓘ button at the control's top right. Loop, Share, MIDI and Reset are one row of four buttons at the top; their plain lines are tooltips and screen-reader text. Seed joins the Piece group. The panel now fits a 1440×800 screen without scrolling.
+- **Light by default.** The page never follows the OS color scheme. A ◐ button in the top bar switches to dark, and the choice is remembered in `localStorage`.
+- Section 6's "plain line always visible" now means the short line; the long text is one tap away.

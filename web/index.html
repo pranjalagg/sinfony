@@ -10,39 +10,72 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&family=Roboto+Mono:wght@400&display=swap">
   <link rel="stylesheet" href="style.css">
+  <script>try { if (localStorage.getItem("sinfony-theme") === "dark") document.documentElement.dataset.theme = "dark"; } catch {}</script>
 </head>
 <body>
   <div class="app">
     <aside class="sidebar">
       <header class="topbar">
         <h1 class="brand">sinfony</h1>
+        <button id="theme" class="icon" title="Switch between light and dark" aria-label="Switch between light and dark">◐</button>
         <button id="play" class="primary" disabled>▶ Play</button>
       </header>
+
+      <section class="group actions">
+        <div class="control" data-control="loop">
+          <label class="check" title="Repeat at the end"><input id="loop" type="checkbox"> Loop</label>
+          <p class="hint">Repeat at the end.</p>
+        </div>
+        <div class="control" data-control="share">
+          <button id="share" title="Copy a link to this piece">🔗 Share</button>
+          <p class="hint">Copy a link to this piece.</p>
+        </div>
+        <div class="control" data-control="midi">
+          <button id="midi" title="Notes for MuseScore, GarageBand">⬇ MIDI</button>
+          <p class="hint">Notes for MuseScore, GarageBand.</p>
+        </div>
+        <div class="control" data-control="reset">
+          <button id="reset" title="Clear your drawings">↺ Reset</button>
+          <p class="hint">Clear your drawings.</p>
+        </div>
+      </section>
 
       <section class="group">
         <h2>Piece</h2>
         <div class="control" data-control="style">
           <label for="style">Style</label>
           <select id="style"><option value="tonal">Tonal</option><option value="ambient">Ambient</option></select>
-          <p class="hint">Tonal: classical piano; chords pull toward a home chord, and the piece ends there. Ambient: slow and drifting; chords glide to close neighbors while two bell loops repeat.</p>
-          <details class="math"><summary>ⓘ the math</summary>
-            <p>Tonal: chords follow a Markov chain over functions, Tonic → Subdominant → Dominant → Tonic. The melody is a 2-bar motif, repeated and moved to follow your drawing. Ambient: chords walk the Tonnetz with P, L, R moves (each changes one note by one or two semitones). The loops have 8 and 13 steps, so they line up again only every lcm(8, 13) = 104 steps.</p>
+          <p class="hint">Tonal: classical. Ambient: slow and drifting.</p>
+          <details class="math"><summary aria-label="More about Style, and the math">ⓘ</summary>
+            <p class="more">Tonal: classical piano; chords pull toward a home chord, and the piece ends there. Ambient: slow and drifting; chords glide to close neighbors while two bell loops repeat.</p>
+            <p class="formula">Tonal: chords follow a Markov chain over functions, Tonic → Subdominant → Dominant → Tonic. The melody is a 2-bar motif, repeated and moved to follow your drawing. Ambient: chords walk the Tonnetz with P, L, R moves (each changes one note by one or two semitones). The loops have 8 and 13 steps, so they line up again only every lcm(8, 13) = 104 steps.</p>
           </details>
         </div>
         <div class="control" data-control="key">
           <label for="root">Key</label>
           <span class="row"><select id="root" aria-label="Key root"></select><select id="mode" aria-label="Mode"></select></span>
-          <p class="hint">Which notes the music may use. The first menu picks the home note; the second picks the mood (major sounds bright, minor darker).</p>
-          <details class="math"><summary>ⓘ the math</summary>
-            <p>A scale is a set of pitch classes in ℤ₁₂. Major = 7 stacked fifths: 7k mod 12, for k = −1…5, gives {0, 2, 4, 5, 7, 9, 11}. A mode uses the same notes as another scale with a different home note.</p>
+          <p class="hint">The notes the music may use.</p>
+          <details class="math"><summary aria-label="More about Key, and the math">ⓘ</summary>
+            <p class="more">Which notes the music may use. The first menu picks the home note; the second picks the mood (major sounds bright, minor darker).</p>
+            <p class="formula">A scale is a set of pitch classes in ℤ₁₂. Major = 7 stacked fifths: 7k mod 12, for k = −1…5, gives {0, 2, 4, 5, 7, 9, 11}. A mode uses the same notes as another scale with a different home note.</p>
           </details>
         </div>
         <div class="control" data-control="tempo">
           <label for="tempo">Tempo <output id="tempo-out"></output></label>
           <input id="tempo" type="range" min="40" max="200" step="1">
           <p class="hint">How fast, in beats per minute.</p>
-          <details class="math"><summary>ⓘ the math</summary>
-            <p>One beat lasts 60 / bpm seconds. The performance pushes a little faster in the middle of each 4-bar phrase, using the arc 1 − 4(u − ½)², and slows down over the final bars.</p>
+          <details class="math"><summary aria-label="More about Tempo, and the math">ⓘ</summary>
+            <p class="more">How fast, in beats per minute.</p>
+            <p class="formula">One beat lasts 60 / bpm seconds. The performance pushes a little faster in the middle of each 4-bar phrase, using the arc 1 − 4(u − ½)², and slows down over the final bars.</p>
+          </details>
+        </div>
+        <div class="control" data-control="seed">
+          <label for="seed">Seed</label>
+          <span class="row"><input id="seed" type="number" min="0" step="1" value="0"><button id="dice" title="Random seed" aria-label="Random seed">🎲</button></span>
+          <p class="hint">Same seed, same piece. Roll for a new one.</p>
+          <details class="math"><summary aria-label="More about Seed, and the math">ⓘ</summary>
+            <p class="more">The piece is fixed until you change this number. The same seed gives the same piece on every computer. A new seed also picks a new key and tempo.</p>
+            <p class="formula">All randomness comes from a generator started from this number. Each layer (plan, harmony, melody…) gets its own stream, so changing one control doesn't reshuffle the others.</p>
           </details>
         </div>
       </section>
@@ -52,59 +85,32 @@
         <div class="control" data-control="smooth">
           <label for="smooth">Smoothness <output id="smooth-out"></output></label>
           <input id="smooth" type="range" min="0" max="5" step="0.1">
-          <p class="hint">Higher: the tune moves to nearby notes. Lower: it's free to leap. You hear it most when Wiggle or your drawing jumps around.</p>
-          <details class="math"><summary>ⓘ the math</summary>
-            <p>Each candidate note c gets a score |c − target| + w · max(0, |c − previous| − 2), with w = smoothness. A whole step (2 semitones) is free; every semitone beyond it costs w. Ambient picks at random, with p(c) ∝ exp(−score / 0.8), so low scores are much likelier. Tonal picks the lowest score for the 2-bar motif only; each later copy of the motif keeps its steps and is moved to your drawing, with a fixed cost of 0.5 per semitone for the jump into the copy, whatever Smoothness is.</p>
+          <p class="hint">Higher: small steps. Lower: leaps.</p>
+          <details class="math"><summary aria-label="More about Smoothness, and the math">ⓘ</summary>
+            <p class="more">Higher: the tune moves to nearby notes. Lower: it's free to leap. You hear it most when Wiggle or your drawing jumps around.</p>
+            <p class="formula">Each candidate note c gets a score |c − target| + w · max(0, |c − previous| − 2), with w = smoothness. A whole step (2 semitones) is free; every semitone beyond it costs w. Ambient picks at random, with p(c) ∝ exp(−score / 0.8), so low scores are much likelier. Tonal picks the lowest score for the 2-bar motif only; each later copy of the motif keeps its steps and is moved to your drawing, with a fixed cost of 0.5 per semitone for the jump into the copy, whatever Smoothness is.</p>
           </details>
         </div>
         <div class="control" data-control="wiggle">
           <label for="wiggle">Wiggle <output id="wiggle-out"></output></label>
           <input id="wiggle" type="range" min="0" max="1" step="0.01">
-          <p class="hint">How far the tune wanders from your drawing. 0 stays close to it; 1 wanders a lot.</p>
-          <details class="math"><summary>ⓘ the math</summary>
-            <p>shape(t) = drawing(t) + wiggle · pink(t), clipped to [0, 1]. Pink (1/f) noise has big slow drifts and small fast jitters, like real melodies (Voss &amp; Clarke, 1975).</p>
+          <p class="hint">How far the tune strays from your drawing.</p>
+          <details class="math"><summary aria-label="More about Wiggle, and the math">ⓘ</summary>
+            <p class="more">How far the tune wanders from your drawing. 0 stays close to it; 1 wanders a lot.</p>
+            <p class="formula">shape(t) = drawing(t) + wiggle · pink(t), clipped to [0, 1]. Pink (1/f) noise has big slow drifts and small fast jitters, like real melodies (Voss &amp; Clarke, 1975).</p>
           </details>
         </div>
         <div class="control" data-control="density">
           <label for="density">Density <output id="density-out"></output></label>
           <input id="density" type="range" min="0" max="1" step="0.01">
-          <p class="hint">How many notes the tune plays. Low: a few long notes. High: busy.</p>
-          <details class="math"><summary>ⓘ the math</summary>
-            <p>At every grid step (½ beat in Tonal, 1 beat in Ambient) a note starts with probability density × beat strength. Strong beats get notes first.</p>
+          <p class="hint">Few long notes, or many short ones.</p>
+          <details class="math"><summary aria-label="More about Density, and the math">ⓘ</summary>
+            <p class="more">How many notes the tune plays. Low: a few long notes. High: busy.</p>
+            <p class="formula">At every grid step (½ beat in Tonal, 1 beat in Ambient) a note starts with probability density × beat strength. Strong beats get notes first.</p>
           </details>
         </div>
       </section>
 
-      <section class="group">
-        <h2>Chance</h2>
-        <div class="control" data-control="seed">
-          <label for="seed">Seed</label>
-          <span class="row"><input id="seed" type="number" min="0" step="1" value="0"><button id="dice" title="Random seed" aria-label="Random seed">🎲</button></span>
-          <p class="hint">The piece is fixed until you change this number. The same seed gives the same piece on every computer. A new seed also picks a new key and tempo.</p>
-          <details class="math"><summary>ⓘ the math</summary>
-            <p>All randomness comes from a generator started from this number. Each layer (plan, harmony, melody…) gets its own stream, so changing one control doesn't reshuffle the others.</p>
-          </details>
-        </div>
-      </section>
-
-      <section class="group actions">
-        <div class="control" data-control="loop">
-          <label class="check"><input id="loop" type="checkbox"> Loop</label>
-          <p class="hint">Start again from the top when the piece ends.</p>
-        </div>
-        <div class="control" data-control="share">
-          <button id="share">🔗 Share</button>
-          <p class="hint">Copy a link that plays exactly this piece.</p>
-        </div>
-        <div class="control" data-control="midi">
-          <button id="midi">⬇ MIDI</button>
-          <p class="hint">Download the notes. Open the file in MuseScore or GarageBand to see the sheet music.</p>
-        </div>
-        <div class="control" data-control="reset">
-          <button id="reset">↺ Reset drawing</button>
-          <p class="hint">Clear your drawings and go back to the style's own shapes.</p>
-        </div>
-      </section>
     </aside>
 
     <main class="stage">
@@ -130,8 +136,8 @@
         <header>
           <h2>Melody shape</h2>
           <p class="hint">Draw where the tune goes high or low. Sections with the same letter (A, A′) repeat, so drawing one draws them all.</p>
-          <details class="math"><summary>ⓘ the math</summary>
-            <p>target pitch = low + shape(t) · (high − low), inside the melody's range. Notes are then picked by the score under Smoothness. In Tonal, the first 2 bars become a motif, and each later copy of it is moved up or down to sit where you drew.</p>
+          <details class="math"><summary aria-label="The math">ⓘ</summary>
+            <p class="formula">target pitch = low + shape(t) · (high − low), inside the melody's range. Notes are then picked by the score under Smoothness. In Tonal, the first 2 bars become a motif, and each later copy of it is moved up or down to sit where you drew.</p>
           </details>
         </header>
         <canvas id="contour"></canvas>
@@ -140,8 +146,8 @@
         <header>
           <h2>Tension</h2>
           <p class="hint">Low: calm and softer. High: louder and more intense; in Tonal, a few more chords that want to resolve.</p>
-          <details class="math"><summary>ⓘ the math</summary>
-            <p>Loudness × (0.7 + 0.3 · tension). Tonal: when a new chord is chosen, the chance of a Dominant × (1 + tension), of a Tonic × (1.5 − tension). Repeated sections reuse their first chords, so tension changes chords mostly in sections heard once (like B). Ambient: the chance of a chord change = 0.3 + 0.6 · tension.</p>
+          <details class="math"><summary aria-label="The math">ⓘ</summary>
+            <p class="formula">Loudness × (0.7 + 0.3 · tension). Tonal: when a new chord is chosen, the chance of a Dominant × (1 + tension), of a Tonic × (1.5 − tension). Repeated sections reuse their first chords, so tension changes chords mostly in sections heard once (like B). Ambient: the chance of a chord change = 0.3 + 0.6 · tension.</p>
           </details>
         </header>
         <canvas id="tension"></canvas>

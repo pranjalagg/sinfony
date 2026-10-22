@@ -41,7 +41,7 @@ test("math controls have a closed disclosure", () => {
     const b = block("control", name);
     assert.match(b, /<details class="math">/, name);
     assert.doesNotMatch(b, /<details class="math" open/, name);
-    assert.ok(b.includes("<summary>ⓘ the math</summary>"), name);
+    assert.match(b, /<summary[^>]*aria-label="[^"]*math[^"]*"[^>]*>ⓘ<\/summary>/, name);
   }
 });
 
@@ -83,4 +83,24 @@ test("opening a pad's math never squeezes its canvas away", () => {
   assert.doesNotMatch(rule(".pad"), /overflow:\s*hidden/);
   const floor = /min-height:\s*(\d+)px/.exec(rule(".pad canvas"));
   assert.ok(floor && Number(floor[1]) >= 100, "canvas keeps a usable height");
+});
+
+test("the panel's plain lines are one short line", () => {
+  for (const name of ["style", "key", "tempo", "smooth", "wiggle", "density", "seed", "loop", "share", "midi", "reset"]) {
+    const m = /<p class="hint">([^<]*)<\/p>/.exec(block("control", name));
+    assert.ok(m, name);
+    assert.ok(m[1].length <= 60, `${name} hint is ${m[1].length} characters`);
+  }
+});
+
+test("the full explanation sits behind the info button", () => {
+  for (const name of ["style", "key", "tempo", "smooth", "wiggle", "density", "seed"]) {
+    assert.match(block("control", name), /<details class="math">[\s\S]*<p class="more">[\s\S]*<p class="formula">/, name);
+  }
+});
+
+test("light is the default look; dark is opt-in", () => {
+  assert.ok(html.includes('id="theme"'));
+  assert.doesNotMatch(css, /prefers-color-scheme:\s*dark/);
+  assert.match(css, /:root\[data-theme="dark"\]/);
 });

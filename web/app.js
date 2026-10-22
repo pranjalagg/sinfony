@@ -7,6 +7,7 @@ import { Player, beatAtSeconds } from "./player.js";
 import { drawRoll, legendItems } from "./roll.js";
 import { clampSeed, decodeHash, encodeHash, quantize } from "./share.js";
 import { Synth } from "./synth.js";
+import { THEME_KEY, loadTheme, nextTheme } from "./theme.js";
 
 const $ = (id) => document.getElementById(id);
 const STYLE_SECTIONS = { tonal: ["A", "A'", "B", "A"], ambient: ["A", "B", "A'", "C", "A"] };
@@ -62,10 +63,21 @@ function readColors() {
 }
 let colors = readColors();
 const getColors = () => colors;
-matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = theme;
   colors = readColors();
   redraw();
+}
+
+// ---------- theme (light by default; the ◐ button opts into dark)
+$("theme").addEventListener("click", () => {
+  const theme = nextTheme(document.documentElement.dataset.theme === "dark" ? "dark" : "light");
+  applyTheme(theme);
+  try {
+    localStorage.setItem(THEME_KEY, theme);
+  } catch {} // storage can be blocked; the choice then lasts for this visit only
 });
+document.documentElement.dataset.theme = loadTheme();
 
 // ---------- pads
 const contourPad = new PadView($("contour"), {
