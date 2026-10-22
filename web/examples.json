@@ -2,7 +2,7 @@
  {
   "id": "rise-and-fall",
   "name": "Rise and fall",
-  "listen": "The tune climbs and falls with your arch, and every A section comes back with the same shape.",
+  "listen": "The first and last A climb and fall with your arch, exactly the same each time. The A\u2032 in between lifts its second half, so it differs.",
   "params": {
    "style": "tonal",
    "seed": 0,
@@ -606,7 +606,7 @@
  {
   "id": "small-steps",
   "name": "Small steps",
-  "listen": "Lots of wandering, but the tune still moves note to note, like a scale. Compare with Big leaps.",
+  "listen": "Lots of wandering, but the notes inside each phrase move in small steps. Compare with Big leaps.",
   "params": {
    "style": "tonal",
    "seed": 3,

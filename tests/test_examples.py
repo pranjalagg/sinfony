@@ -121,3 +121,8 @@ def test_let_chance_draw(examples):
     pitches = lambda p: [n.pitch for n in melody(web.build(p))]  # noqa: E731
     assert pitches(params) != pitches({**params, "seed": params["seed"] + 1})
     assert pitches(params) != pitches({**params, "wiggle": 0})
+
+
+def test_rise_and_fall_claim_names_the_sections_that_match(examples):
+    text = examples["rise-and-fall"]["listen"]
+    assert "first and last A" in text and "A′" in text  # A′ lifts its second half, so it differs

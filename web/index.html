@@ -34,7 +34,7 @@
           <span class="row"><select id="root" aria-label="Key root"></select><select id="mode" aria-label="Mode"></select></span>
           <p class="hint">Which notes the music may use. The first menu picks the home note; the second picks the mood (major sounds bright, minor darker).</p>
           <details class="math"><summary>ⓘ the math</summary>
-            <p>A scale is a set of pitch classes in ℤ₁₂. Major = 7 stacked fifths: 7k mod 12 gives {0, 2, 4, 5, 7, 9, 11}. A mode uses the same notes as another scale with a different home note.</p>
+            <p>A scale is a set of pitch classes in ℤ₁₂. Major = 7 stacked fifths: 7k mod 12, for k = −1…5, gives {0, 2, 4, 5, 7, 9, 11}. A mode uses the same notes as another scale with a different home note.</p>
           </details>
         </div>
         <div class="control" data-control="tempo">
@@ -54,7 +54,7 @@
           <input id="smooth" type="range" min="0" max="5" step="0.1">
           <p class="hint">Higher: the tune moves to nearby notes. Lower: it's free to leap. You hear it most when Wiggle or your drawing jumps around.</p>
           <details class="math"><summary>ⓘ the math</summary>
-            <p>Each candidate note c gets a score |c − target| + w · max(0, |c − previous| − 2), with w = smoothness. A whole step (2 semitones) is free; every semitone beyond it costs w. Tonal picks the lowest score; Ambient picks at random, with p(c) ∝ exp(−score / 0.8), so low scores are much likelier.</p>
+            <p>Each candidate note c gets a score |c − target| + w · max(0, |c − previous| − 2), with w = smoothness. A whole step (2 semitones) is free; every semitone beyond it costs w. Ambient picks at random, with p(c) ∝ exp(−score / 0.8), so low scores are much likelier. Tonal picks the lowest score for the 2-bar motif only; each later copy of the motif keeps its steps and is moved to your drawing, with a fixed cost of 0.5 per semitone for the jump into the copy, whatever Smoothness is.</p>
           </details>
         </div>
         <div class="control" data-control="wiggle">

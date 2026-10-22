@@ -27,3 +27,8 @@ export function exampleHash(example) {
     smooth: p.smooth ?? null, density: p.density ?? null, contour: p.contour ?? {}, tension: p.tension ?? null,
   });
 }
+
+/** The example whose link is this hash (Back/Forward can land on one), or null. */
+export function exampleForHash(examples, hash) {
+  return examples.find((ex) => exampleHash(ex) === hash) ?? null;
+}

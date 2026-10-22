@@ -2,6 +2,13 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
+const css = readFileSync(new URL("../style.css", import.meta.url), "utf8");
+const rule = (selector) => {
+  const m = new RegExp(`(?:^|\\n)${selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*\\{([^}]*)\\}`).exec(css);
+  assert.ok(m, `no rule for ${selector}`);
+  return m[1];
+};
+
 const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
 
 const IDS = [
@@ -58,4 +65,22 @@ test("old titles are gone", () => {
 
 test("new ids exist", () => {
   for (const id of ["examples", "listen", "listen-text", "listen-close"]) assert.ok(html.includes(`id="${id}"`), id);
+});
+
+test("smoothness math says what Tonal copies do", () => {
+  const b = block("control", "smooth");
+  assert.ok(b.includes("fixed cost"), "mentions the fixed cost of copy joins");
+  assert.ok(b.includes("motif"));
+});
+
+test("key math starts the stack of fifths at k = −1", () => {
+  assert.ok(block("control", "key").includes("k = −1…5"));
+});
+
+test("opening a pad's math never squeezes its canvas away", () => {
+  assert.doesNotMatch(rule(".stage"), /(^|\s)height:\s*100vh/);
+  assert.match(rule(".stage"), /min-height:\s*100vh/);
+  assert.doesNotMatch(rule(".pad"), /overflow:\s*hidden/);
+  const floor = /min-height:\s*(\d+)px/.exec(rule(".pad canvas"));
+  assert.ok(floor && Number(floor[1]) >= 100, "canvas keeps a usable height");
 });

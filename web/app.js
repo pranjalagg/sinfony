@@ -1,7 +1,7 @@
 // sinfony playground: wiring between controls, pads, the Python engine, and audio.
 
 import { Engine } from "./engine.js";
-import { exampleHash, loadExamples } from "./examples.js";
+import { exampleForHash, exampleHash, loadExamples } from "./examples.js";
 import { POINTS, PadView, mergePads, sameLayout } from "./pads.js";
 import { Player, beatAtSeconds } from "./player.js";
 import { drawRoll, legendItems } from "./roll.js";
@@ -334,6 +334,8 @@ function renderLegend(style) {
 }
 
 // ---------- examples
+let examples = [];
+
 function showListen(example) {
   $("listen-text").textContent = example ? example.listen : "";
   $("listen").hidden = !example;
@@ -355,7 +357,7 @@ function openExample(example) {
 }
 
 async function setUpExamples() {
-  const examples = await loadExamples();
+  examples = await loadExamples();
   if (!examples.length) return;
   const label = document.createElement("span");
   label.className = "label";
@@ -371,6 +373,7 @@ async function setUpExamples() {
   });
   $("examples").replaceChildren(label, ...chips);
   $("examples").hidden = false;
+  showListen(exampleForHash(examples, location.hash));
 }
 $("listen-close").addEventListener("click", () => showListen(null));
 
@@ -397,6 +400,7 @@ function loadFromHash() {
   if (ignored.length) toast(`Ignored invalid link fields: ${ignored.join(", ")}`);
 }
 window.addEventListener("hashchange", () => {
+  showListen(exampleForHash(examples, location.hash)); // Back/Forward may land on, or leave, an example
   loadFromHash();
   refreshPads();
   requestCompose();

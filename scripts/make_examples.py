@@ -58,13 +58,13 @@ def build() -> list[dict]:
 
     return [
         {"id": "rise-and-fall", "name": "Rise and fall",
-         "listen": "The tune climbs and falls with your arch, and every A section comes back with the same shape.",
+         "listen": "The first and last A climb and fall with your arch, exactly the same each time. The A′ in between lifts its second half, so it differs.",
          "params": rise},
         {"id": "calm-to-storm", "name": "Calm to storm",
          "listen": "B gets much louder and more intense. Watch the chord strip: more Tension-colored chords in B.",
          "params": storm},
         {"id": "small-steps", "name": "Small steps",
-         "listen": "Lots of wandering, but the tune still moves note to note, like a scale. Compare with Big leaps.",
+         "listen": "Lots of wandering, but the notes inside each phrase move in small steps. Compare with Big leaps.",
          "params": steps},
         {"id": "big-leaps", "name": "Big leaps",
          "listen": "Same wandering, but now the tune jumps. Only smoothness changed.",

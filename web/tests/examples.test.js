@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-import { exampleHash, loadExamples } from "../examples.js";
+import { exampleForHash, exampleHash, loadExamples } from "../examples.js";
 import { decodeHash } from "../share.js";
 
 const examples = JSON.parse(readFileSync(new URL("../examples.json", import.meta.url), "utf8"));
@@ -46,4 +46,11 @@ test("loadExamples returns [] on failure", async () => {
 test("loadExamples returns the list", async () => {
   const got = await loadExamples(async () => ({ ok: true, json: async () => examples }));
   assert.deepEqual(got, examples);
+});
+
+test("exampleForHash finds the example a URL opens, else null", () => {
+  for (const ex of examples) assert.equal(exampleForHash(examples, exampleHash(ex)), ex);
+  assert.equal(exampleForHash(examples, "#v=1&style=tonal&seed=999"), null);
+  assert.equal(exampleForHash(examples, ""), null);
+  assert.equal(exampleForHash([], exampleHash(examples[0])), null);
 });
