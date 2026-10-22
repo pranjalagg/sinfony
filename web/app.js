@@ -55,6 +55,7 @@ function readColors() {
   return {
     ink: v("--ink"), muted: v("--muted"), grid: v("--grid"), band: v("--band"), bandAlt: v("--band-alt"),
     accent: v("--accent"), playhead: v("--playhead"),
+    fnHome: v("--fn-home"), fnAway: v("--fn-away"), fnTension: v("--fn-tension"), chordNeutral: v("--chord-neutral"),
     voices: [v("--v1"), v("--v2"), v("--v3"), v("--v4"), v("--v5")],
   };
 }

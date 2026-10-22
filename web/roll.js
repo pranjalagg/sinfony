@@ -3,6 +3,37 @@
 import { fitCanvas } from "./canvas.js";
 import { beatAtSeconds } from "./player.js";
 
+/** Which palette color each harmonic function gets (T home, S away, D tension). */
+export const FN_COLOR = { T: "fnHome", S: "fnAway", D: "fnTension", other: "chordNeutral" };
+export const MIN_LABEL_PX = 22;
+
+/** One pill per chord span: pixel extent, label, palette key, and whether the label fits. */
+export function chordPills(chords, x) {
+  return chords.map((ch) => {
+    const x0 = x(ch.onset);
+    const x1 = x(ch.onset + ch.dur);
+    return {
+      x0,
+      x1,
+      label: ch.label,
+      colorKey: FN_COLOR[ch.function] ?? FN_COLOR.other,
+      showLabel: x1 - x0 >= MIN_LABEL_PX,
+    };
+  });
+}
+
+/** The key under the chord strip: what each color means for this style. */
+export function legendItems(style) {
+  if (style === "tonal") {
+    return [
+      { colorKey: "fnHome", text: "Home (I, iii, vi): feels settled" },
+      { colorKey: "fnAway", text: "Away (ii, IV, V/V): moving off" },
+      { colorKey: "fnTension", text: "Tension (V, V7, vii°): wants to resolve" },
+    ];
+  }
+  return [{ colorKey: "chordNeutral", text: "Each chord moves to a close neighbor on the Tonnetz (P, L, or R)." }];
+}
+
 export function drawRoll(canvas, piece, positionS, colors) {
   const ctx = fitCanvas(canvas);
   const W = canvas.clientWidth;
@@ -20,7 +51,7 @@ export function drawRoll(canvas, piece, positionS, colors) {
   }
   lo -= 1;
   hi += 1;
-  const top = 22;
+  const top = 26;
   const rowH = (H - top) / (hi - lo + 1);
   const x = (beat) => (beat / T) * W;
   const y = (pitch) => top + (hi - pitch) * rowH;
@@ -30,15 +61,19 @@ export function drawRoll(canvas, piece, positionS, colors) {
     ctx.fillRect(x(s.start), 0, x(s.end) - x(s.start), H);
   });
 
-  ctx.font = "10px system-ui, sans-serif";
-  ctx.fillStyle = c.muted;
-  let lastLabel = -Infinity;
-  for (const ch of piece.chords) {
-    const cx = x(ch.onset) + 3;
-    if (cx - lastLabel < 34) continue; // skip labels that would overlap
-    ctx.fillText(ch.label, cx, 14);
-    lastLabel = cx;
+  ctx.font = "10px Roboto, system-ui, sans-serif";
+  ctx.textBaseline = "middle";
+  for (const pill of chordPills(piece.chords, x)) {
+    ctx.globalAlpha = 0.4;
+    ctx.fillStyle = c[pill.colorKey];
+    ctx.fillRect(pill.x0 + 0.5, 4, Math.max(1, pill.x1 - pill.x0 - 1), 18);
+    ctx.globalAlpha = 1;
+    if (pill.showLabel) {
+      ctx.fillStyle = c.ink;
+      ctx.fillText(pill.label, pill.x0 + 4, 13);
+    }
   }
+  ctx.textBaseline = "alphabetic";
 
   const voiceColor = Object.fromEntries(piece.voices.map((v, i) => [v.name, c.voices[i % c.voices.length]]));
   for (const n of piece.notes) {
