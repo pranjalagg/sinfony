@@ -45,6 +45,9 @@ curve, and sinfony re-composes the piece when you lift the pen. Repeated
 sections (the A's) are linked, so drawing one draws them all. **Share**
 copies a link that reproduces the exact piece; **MIDI** downloads it.
 
+Every control explains itself in a plain line, with the math behind it one
+tap away ("ⓘ the math"). Six one-click examples each demonstrate one idea.
+
 The page runs the same Python engine inside the browser with
 [Pyodide](https://pyodide.org) (pinned to 314.0.7 in `web/worker.js`), so
 there is no server. The first visit downloads about 10 MB, which is
